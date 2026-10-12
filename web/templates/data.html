@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>판정 데이터</b>{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>판정 데이터</h1><p>검사원이 AI 후보를 채택·반려한 판단, 조치 결과, 도장 전·후 같은 자리 관계가 그대로 학습 데이터 라벨이 됩니다.</p></div>
+ <a class="btn blue" href="/data/export.zip">학습 데이터 내보내기 (zip)</a>
+</div>
+<div class="tiles">
+ <div class="tile"><div class="v">{{ tiles.labels }}</div><div class="k">판정 라벨</div><div class="note">예시 {{ tiles.example }}건 포함</div></div>
+ <div class="tile"><div class="v">{{ tiles.accept }}</div><div class="k">AI 후보 채택률</div><div class="note">채택 / 판정한 AI 후보</div></div>
+ <div class="tile"><div class="v">{{ tiles.missed }}</div><div class="k">AI가 놓친 결함</div><div class="note">검사원이 직접 추가한 지적</div></div>
+ <div class="tile"><div class="v sm">{{ tiles.top }}</div><div class="k">반려 이유 1위</div><div class="note">AI가 가장 헷갈린 경우</div></div>
+ <div class="tile"><div class="v">{{ tiles.rework }}</div><div class="k">재조치율</div><div class="note">재검사에서 미흡 / 전체 지적</div></div>
+ <div class="tile"><div class="v">{{ tiles.recur + tiles.rejhit }}</div><div class="k">도장 후 같은 자리 결함</div><div class="note">재발 {{ tiles.recur }} · 반려했던 자리 {{ tiles.rejhit }}</div></div>
+</div>
+<p class="note" style="margin:-6px 0 18px">라벨 출처 · {% for k, n in origins %}{{ k }} <b>{{ n }}</b>{{ ' · ' if not loop.last }}{% endfor %} — 성능은 출처를 섞지 않고 따로 셉니다</p>
+<div class="cols">
+ <div class="panel"><div class="ph"><h2>최근 판정 라벨</h2><span class="note">새 판정이 위</span></div><div class="pb">
+  <table class="lt"><tr><th>시각</th><th>구역 · 위치</th><th>단계</th><th>출처</th><th>판정</th><th>지적 · 결과</th><th>같은 자리</th></tr>
+  {% for r in rows %}<tr>
+   <td class="mono">{{ r.decided_at }}</td>
+   <td><b class="mono">{{ r.zone }}</b> <span class="note">{{ r.location }}</span></td>
+   <td style="white-space:nowrap">{{ r.stage }}</td>
+   <td><span class="tag {{ 'c-review' if r.origin == '합성' else 'c-mute' }}">{{ r.origin or '-' }}</span></td>
+   <td>{% if r.source == '검사원 직접' %}<span class="tag c-punch">직접 추가</span>{% elif r.decision == '채택' %}<span class="tag c-punch">채택</span>{% else %}<span class="tag c-mute">반려 · {{ r.reason }}</span>{% endif %}</td>
+   <td>{{ r.finding }}{% if r.outcome %} <span class="note">{{ r.outcome }}{{ ' · 재조치 %d회' % r.reworks if r.reworks }}</span>{% endif %}</td>
+   <td>{% if r.same_spot %}<span class="{{ 'tag c-punch' if ('재발' in r.same_spot or '반려했던' in r.same_spot) else ('tag c-close' if r.same_spot == '도장 후 이상 없음' else 'note') }}">{{ r.same_spot }}</span>{% endif %}</td>
+  </tr>{% else %}<tr><td colspan="7" class="note">아직 판정이 없습니다.</td></tr>{% endfor %}</table>
+ </div></div>
+ <div class="panel"><div class="ph"><h2>반려 이유</h2><span class="note">건수</span></div><div class="pb">
+  {% for k, n in reasons %}<div class="bar" title="{{ k }} {{ n }}건"><span>{{ k }}</span><span class="bt"><i style="width:{{ (100 * n / most) if n else 0 }}%"></i></span><span class="mono">{{ n }}</span></div>{% endfor %}
+  <p class="note" style="margin-top:14px">내보내기 zip = <span class="mono">images/</span> + <span class="mono">annotations.json</span>(COCO, 결함 = 채택·직접 추가) + <span class="mono">rejected.json</span>(반려 박스) + <span class="mono">labels.csv</span></p>
+ </div></div>
+</div>
+{% endblock %}

@@ -1,0 +1,244 @@
+{% macro tag(s) %}<span class="tag c-{{ STATUS[s] }}">{{ s }}</span>{% endmacro %}
+
+{# 다른 기기에서 무언가 바뀌었을 때만 다시 그린다 (2초마다 /api/v 확인). 깜빡이는 주기 새로 고침 대신 쓴다.
+   글을 쓰는 중이거나, 사진을 골라 놓았거나, 폰이 카메라를 연 동안(페이지 숨김), 올리는 중에는 미룬다 #}
+{% macro poll(toast=False) %}
+<script>
+(() => {
+  const v = {{ EV() }}, p0 = {{ EP() }};
+  const busy = () => document.hidden || document.body.classList.contains('busy') ||
+    [...document.querySelectorAll('input[type=text], textarea, input[type=file]')]
+      .some(el => el === document.activeElement || (el.type === 'file' ? el.files.length : el.value));
+  setInterval(async () => {
+    try {
+      const d = await (await fetch('/api/v', {cache: 'no-store'})).json();
+      if (d.v === v || busy()) return;
+      {% if toast %}if (d.photo && d.photo.id > p0) try { sessionStorage.setItem('bt-toast', JSON.stringify(d.photo)); } catch (e) {}{% endif %}
+      location.reload();
+    } catch (e) {}
+  }, 2000);
+  {%- if toast %}
+  // 청중은 폰을 못 본다: 폰에서 사진이 오면 노트북에 미리보기를 띄우고 평면도 칸을 깜빡인다
+  let t = null;
+  try { t = JSON.parse(sessionStorage.getItem('bt-toast')); sessionStorage.removeItem('bt-toast'); } catch (e) {}
+  if (t) {
+    const kind = {pre: '도장 전 사진', post: '도장 후 사진', recheck: '재검사 사진'}[t.kind] || '사진';
+    const a = Object.assign(document.createElement('a'), {className: 'toast',
+      href: t.ok && t.kind !== 'recheck' ? '/review/' + t.id : '/zones/' + t.zone_id});
+    const img = Object.assign(document.createElement('img'), {src: t.src, alt: ''});
+    const txt = document.createElement('span');
+    txt.append(Object.assign(document.createElement('b'), {textContent: t.zone_id + ' · 폰에서 ' + kind + ' 도착'}),
+      Object.assign(document.createElement('small'), {textContent: !t.ok ? '반사가 많아 다시 찍는 중' : t.kind === 'recheck' ? '구역 이력에서 확인 →' : 'AI 후보 확인 →'}));
+    a.append(img, txt); document.body.append(a); setTimeout(() => a.remove(), 9000);
+    document.querySelectorAll('.dwg a[href$="/' + t.zone_id + '"] .z').forEach(r => r.classList.add('flash'));
+  }
+  {%- endif %}
+})();
+</script>
+{% endmacro %}
+
+{# 시연 흐름 ①~⑦ 진행 막대. cur = 지금 단계 (0이면 전체 흐름만 보여 준다) #}
+{% macro steps(cur) %}
+{% set items = [('촬영', '폰으로 구역 촬영'), ('AI 후보', '다시 볼 곳 제안'), ('지적 확정', '검사원 판단'),
+                ('조치', '작업자 완료 등록'), ('재검사', '같은 위치 비교'), ('종결 · 승인', 'Close-out · HP1 해제'),
+                ('도장 후 검사', '같은 자리 연결 · HP2')] %}
+<ol class="steps">{% for t, d in items %}<li class="{{ 'on' if loop.index == cur else ('done' if loop.index < cur else '') }}"><b>{{ loop.index }}</b><span>{{ t }}<small>{{ d }}</small></span></li>{% endfor %}</ol>
+{% endmacro %}
+
+{# 블록 분할도 시안 v2: 유조선 일반배치(GA) 느낌. 위 = 측면(우현에서 본 모습), 아래 = 선저 평면(위에서 본 모습, 위쪽이 좌현).
+   화물창 No.5~No.1(탱크 하나 = 블록 2개), 기관실·펌프실·선수미 탱크, 이중저(선저 블록 띠). 선저 블록 B07~B16을 P/S로 나눈다. #}
+{% macro ship(href, compact=False) %}
+{% set CX, BW = 230, 60 %}
+{% set HULL = 'M52,168 L56,194 C62,204 76,210 92,212 L106,212 L112,236 C114,246 122,250 136,250 L842,250 C866,250 884,248 896,242 C910,236 922,228 922,218 C922,209 914,204 906,203 C902,202 900,199 902,195 L946,148 L872,148 L872,168 Z' %}
+{% set PLAN = 'M52,352 C60,334 92,326 140,324 L820,324 C880,324 928,352 950,400 C928,448 880,476 820,476 L140,476 C92,474 60,466 52,448 Z' %}
+{% set TANKS = [(230, 260, 'SLOP'), (260, 350, 'No.5 C.O.T'), (350, 470, 'No.4 C.O.T'), (470, 590, 'No.3 C.O.T'),
+                (590, 710, 'No.2 C.O.T'), (710, 830, 'No.1 C.O.T')] %}
+{% set BHD = [120, 210, 230, 260, 350, 470, 590, 710, 830] %}
+{% set hi = CX + SHIP_COLS.index('12') * BW %}
+<svg class="dwg ship{{ ' compact' if compact }}" viewBox="{{ '36 52 936 436' if compact else '0 0 1000 600' }}" role="img" aria-label="호선 {{ SHIP }} 블록 분할도">
+ <defs><clipPath id="hullp"><path d="{{ HULL }}"/></clipPath><clipPath id="hullb"><path d="{{ PLAN }}"/></clipPath></defs>
+ {%- if not compact %}<rect class="sheet" x="6" y="6" width="988" height="588"/>{% endif %}
+ <text class="vt" x="24" y="34">PROFILE · 측면 (우현에서 본 모습)</text>
+ <path class="fwd" d="M852,30 h60 m-9,-6 l9,6 l-9,6"/><text class="h2" x="844" y="34" text-anchor="end">FWD</text>
+ {#- 선체 안: B12 열 강조, 이중저 띠(선저 블록), 블록 이음, 횡격벽, 주기관·축계 #}
+ <g clip-path="url(#hullp)">
+  <rect class="hl" x="{{ hi }}" y="168" width="{{ BW }}" height="68"/>
+  <rect class="db" x="{{ CX }}" y="236" width="{{ 10 * BW }}" height="14"/><rect class="hb" x="{{ hi }}" y="236" width="{{ BW }}" height="14"/>
+  <g class="lw">
+   <path class="thin" d="M112,236 H842{% for i in range(1, 10) %} M{{ CX + i * BW }},236 V250{% endfor %}"/>
+   <path class="bh" d="{% for x in BHD %}M{{ x }},168 V236 {% endfor %}"/>
+   <path d="M150,236 V208 H186 V236"/><path class="hid" d="M102,230 H150"/>
+  </g>
+ </g>
+ <g class="lw">
+  <path class="pl" d="{{ HULL }}"/>
+  {#- 타 · 프로펠러 #}
+  <path d="M70,209 C78,208 86,209 89,212 L90,240 C89,245 80,247 73,246 Z"/><ellipse cx="98" cy="230" rx="4" ry="13"/>
+  {#- 굴뚝(거주구 뒤) · 거주구 4층 · 조타실(브리지 윙) · 레이더 마스트 #}
+  <path d="M90,168 L95,98 L119,94 V168 M94,110 L119,106"/>
+  <path d="M122,168 V120 H180 V168"/><path class="thin" d="M122,156 H180 M122,144 H180 M122,132 H180"/>
+  <path d="M114,120 V106 H188 V120 Z"/><path class="win" d="M118,112 H184"/>
+  <path d="M142,106 L146,84 H156 L160,106 M138,84 H164 M151,84 V78 M136,78 H166 M161,78 V64"/>
+  {#- 갑판: 배관대, 매니폴드·호스 크레인, 계류 윈치, 양묘기, 선수 마스트 #}
+  <path class="thin" d="M190,162 H866{% for x in range(204, 866, 34) %} M{{ x }},162 V168{% endfor %}"/>
+  <path d="M496,168 V156 H514 V168 M522,168 V128 M522,132 L486,142 M488,142 V150"/>
+  <path d="M60,168 V161 H76 V168 M898,148 V141 H914 V148"/>
+  <path d="M884,148 L887,114 H890 L893,148"/><circle cx="888.5" cy="110" r="3"/>
+  <path class="hid" d="M40,196 H960"/><path class="thin" d="M78,254 V270 M902,254 V270"/>
+ </g>
+ <text x="24" y="200">DLWL</text><text x="24" y="254">BL</text>
+ <text class="tk" x="86" y="190" text-anchor="middle">A.P.T</text><text class="tk" x="165" y="190" text-anchor="middle">E/R</text>
+ <text class="tk sm" x="168" y="226" text-anchor="middle">M/E</text><text class="tk sm" x="220" y="214" text-anchor="middle">P/R</text>
+ {%- for x0, x1, t in TANKS %}<text class="tk{{ ' sm' if x1 - x0 < 60 }}" x="{{ (x0 + x1) / 2 }}" y="214" text-anchor="middle">{{ t }}</text>{% endfor %}
+ <text class="tk" x="864" y="214" text-anchor="middle">F.P.T</text>
+ <text x="{{ CX - 8 }}" y="266" text-anchor="end">BLK</text>
+ {%- for c in SHIP_COLS %}<text class="{{ 'bn on' if c == '12' else 'bn' }}" x="{{ CX + (loop.index0 + 0.5) * BW }}" y="266" text-anchor="middle">{{ c }}</text>{% endfor %}
+ <text x="78" y="282" text-anchor="middle">A.P</text><text x="902" y="282" text-anchor="middle">F.P</text>
+
+ <text class="vt" x="24" y="304">PLAN · 선저 (위에서 본 모습)</text>
+ <text class="h2" x="{{ CX }}" y="318">PORT (P) 좌현</text><text class="h2" x="{{ CX }}" y="492">STBD (S) 우현</text>
+ <g clip-path="url(#hullb)">
+ {%- for side in ['P', 'S'] %}{% set y = 320 if side == 'P' else 400 %}{% for c in SHIP_COLS %}{% set b = 'B' ~ c ~ side %}{% set x = CX + loop.index0 * BW %}
+  {%- if b in BLOCKS %}<a href="{{ href }}{{ b }}"><rect class="blk on" x="{{ x }}" y="{{ y }}" width="{{ BW }}" height="80"/><title>BLK {{ b }} · {{ BLOCKS[b] }} 선저 · 평면도 열기</title></a>
+  {%- else %}<rect class="blk" x="{{ x }}" y="{{ y }}" width="{{ BW }}" height="80"><title>BLK {{ b }} · 예시 블록 (데이터 없음)</title></rect>{% endif %}
+ {%- endfor %}{% endfor %}
+  <g class="lw"><path class="bh" d="{% for x in BHD %}M{{ x }},300 V500 {% endfor %}M{{ CX }},400 H830"/><path class="thin" d="M{{ CX }},334 H830 M{{ CX }},466 H830"/></g>
+ </g>
+ <g class="lw"><path class="pl" d="{{ PLAN }}"/><path class="cl" d="M36,400 H968"/></g>
+ <text x="24" y="404">CL</text>
+ <text class="tk" x="165" y="388" text-anchor="middle">E/R</text><text class="tk" x="868" y="388" text-anchor="middle">F.P.T</text>
+ {%- for side in ['P', 'S'] %}{% set y = 362 if side == 'P' else 438 %}{% for c in SHIP_COLS %}{% set b = 'B' ~ c ~ side %}{% set x = CX + (loop.index0 + 0.5) * BW %}
+  {%- if b in BLOCKS %}<text class="bl on" x="{{ x }}" y="{{ y - 4 }}" text-anchor="middle">{{ b }}</text><text class="bs" x="{{ x }}" y="{{ y + 16 }}" text-anchor="middle">{{ BLOCKS[b] }}</text>
+  {%- else %}<text class="bl" x="{{ x }}" y="{{ y + 4 }}" text-anchor="middle">{{ b }}</text>{% endif %}
+ {%- endfor %}{% endfor %}
+ {%- if not compact %}
+ <rect class="blk on" x="24" y="516" width="32" height="16"/><text class="h2" x="64" y="528">검사 데이터 있는 블록</text>
+ <rect class="blk" x="24" y="540" width="32" height="16"/><text class="h2" x="64" y="552">예시 블록 (데이터 없음)</text>
+ <g class="lw"><path class="bh" d="M236,524 H268"/><path class="hid" d="M236,548 H268"/><path class="cl" d="M436,524 H468"/></g>
+ <text class="h2" x="276" y="528">횡격벽 · 종격벽</text><text class="h2" x="276" y="552">흘수선 · 축계 (숨은선)</text>
+ <rect class="db" x="436" y="540" width="32" height="16"/>
+ <text class="h2" x="476" y="528">CL 중심선</text><text class="h2" x="476" y="552">이중저 (선저 블록)</text>
+ <g class="tb"><rect x="606" y="522" width="388" height="72"/><path d="M606,540 H994 M606,558 H994 M606,576 H994 M726,522 V594 M880,558 V594"/></g>
+ <text class="tb-b" x="616" y="535">BLASTTRACE</text><text x="736" y="535">시연용 예시 · 실제 도면 아님</text>
+ <text x="616" y="553">SHIP {{ SHIP }}</text><text x="736" y="553">블록 분할도 (BLOCK DIVISION)</text>
+ <text x="616" y="571">SCALE NTS</text><text x="736" y="571">DWG BT-{{ SHIP }}-BD-01</text><text x="890" y="571">REV. C</text>
+ <text x="616" y="589">DRAWN</text><text x="736" y="589">CHECKED</text><text x="890" y="589">APPROVED</text>
+ {%- endif %}
+</svg>
+{% endmacro %}
+
+{# 면 고르기: 중앙 횡단면 (앞을 볼 때 왼쪽 = 좌현). 블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 고른다.
+   지금 블록 쪽의 네 면(SURFACES, 구역 ID 첫 글자)을 누를 수 있다. base = 블록 화면 주소, cur = 지금 면, counts = 면별 기록 있는 구역 수 #}
+{% macro section(bid, base, cur, counts={}) %}
+{% set mx, sg = (480, -1) if bid.endswith('S') else (0, 1) %}
+{% set other = bid[:-1] ~ ('P' if bid.endswith('S') else 'S') %}
+{% set REG = 'M240,250 L115,250 L90,225 L60,225 L60,255 Q60,280 85,280 L240,280 Z' %}
+{% set LINES = {'Z': 'M115,250 H240', 'H': 'M90,225 L115,250', 'O': 'M85,280 H240'} %}
+{% set MARK = {'Z': (178, 236), 'H': (122, 226), 'D': (172, 265), 'O': (178, 296)} %}
+<div class="secwrap">
+<svg class="dwg sec" viewBox="36 26 408 290" role="img" aria-label="중앙 횡단면에서 BLK {{ bid }}의 면 고르기">
+ <path class="other" d="{{ REG }}" transform="translate({{ 480 - mx }},0) scale({{ -sg }},1)"/>
+ <a href="{{ base }}?s=D" transform="translate({{ mx }},0) scale({{ sg }},1)"><path class="sfa{{ ' on' if cur == 'D' }}" d="{{ REG }}"/><title>{{ SURFACES['D'][0] }}</title></a>
+ <g class="lw">
+  <path class="pl" d="M60,60 V255 Q60,280 85,280 H395 Q420,280 420,255 V60 M60,60 Q240,52 420,60"/>
+  <path d="M90,60 V225 L115,250 H365 L390,225 V60 M240,58 V250"/>
+  <path class="hid" d="M150,250 V280 M195,250 V280 M285,250 V280 M330,250 V280"/>
+ </g>
+ <g transform="translate({{ mx }},0) scale({{ sg }},1)">
+ {%- for k, d in LINES.items() %}<a href="{{ base }}?s={{ k }}"><path class="hit" d="{{ d }}"/><path class="sf{{ ' on' if cur == k }}" d="{{ d }}"/><title>{{ SURFACES[k][0] }}</title></a>{% endfor %}
+ </g>
+ {%- for k in SURFACES %}{% set x, y = MARK[k] %}
+ <a href="{{ base }}?s={{ k }}"><g class="mk{{ ' on' if cur == k }}"><circle cx="{{ mx + sg * x }}" cy="{{ y }}" r="9"/><text x="{{ mx + sg * x }}" y="{{ y }}" text-anchor="middle" dominant-baseline="central">{{ loop.index }}</text></g></a>
+ {%- endfor %}
+ <text class="h2" x="60" y="44">좌현 P</text><text class="h2" x="420" y="44" text-anchor="end">우현 S</text>
+ <text class="h2" x="165" y="150" text-anchor="middle">No.3 화물창 (P)</text><text class="h2" x="315" y="150" text-anchor="middle">No.3 화물창 (S)</text>
+ <text class="bk on" x="{{ mx + sg * 100 }}" y="306" text-anchor="middle">{{ bid }}</text>
+ <a href="{{ base|replace(bid, other) }}"><text class="bk" x="{{ 480 - mx - sg * 100 }}" y="306" text-anchor="middle">{{ other }} →</text></a>
+</svg>
+<div class="surf">{% for k, v in SURFACES.items() %}<a class="sbtn{{ ' on' if k == cur }}" href="{{ base }}?s={{ k }}"><b>{{ loop.index }}</b><span>{{ v[0] }}<small>{{ v[1] }}{% if k in counts %} · 기록 {{ counts[k] }}구역{% endif %}</small></span></a>{% endfor %}</div>
+</div>
+{% endmacro %}
+
+{# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 점선 = 판 아래 프레임·론지,
+   실선 = 판 외곽·이음, 타원 = 맨홀. 누르면 href + 구역 ID 로 간다. compact = 폰용 (도면 틀·치수·범례 생략) #}
+{% macro plan(zones, href='/zones/', compact=False) %}
+{% set X0, Y0, CW, CH = 78, 84, 105, 90 %}{% set X1, Y1 = X0 + COLS * CW, Y0 + ROWS * CH %}{% set bid = BLK(zones[0].id) %}{% set fl = bid.endswith('P') %}{% set sk = zones[0].id[0] %}{% set sn, ssub, ax = SURFACES[sk] %}{% set FY = Y0 - (18 if compact else 10) %}
+<svg class="dwg{{ ' compact' if compact }}" viewBox="{{ '36 44 904 318' if compact else '0 0 1000 480' }}" role="img" aria-label="BLK {{ bid }} {{ sn }} · 검사 구역">
+ {%- if not compact %}
+ <rect class="sheet" x="6" y="6" width="988" height="468"/>
+ <text class="h2" x="24" y="40">{{ sn }} · {% if sk == 'H' %}경사면을 펼친 모습, {{ '아래' if fl else '위' }}쪽이 내저판 쪽(HL1){% else %}위에서 본 평면 · {{ BLOCKS[bid] }} 블록의 CL 쪽 L1~L7 구간, {{ '아래' if fl else '위' }}쪽이 CL{% endif %} · 칸 하나 = 2프레임 × 2론지</text>
+ <path class="fwd" d="M852,32 h60 m-9,-6 l9,6 l-9,6"/><text class="h2" x="844" y="36" text-anchor="end">FWD</text>
+ {%- endif %}
+ {%- for z in zones %}{% set r, c = CELL(z.id) %}
+ <a class="s-{{ STATUS[z.status] }}" href="{{ href }}{{ z.id }}"><rect class="z" x="{{ X0 + c * CW + 2 }}" y="{{ Y0 + r * CH + 2 }}" width="{{ CW - 4 }}" height="{{ CH - 4 }}"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ z.status }}</title></a>
+ {%- endfor %}
+ <g class="lw">
+ {#- 길이 120 m가 넘는 배의 이중저는 종늑골식: 촘촘한 건 론지, 가로 부재(늑판·웹)는 프레임 몇 칸마다 #}
+ {%- for k in range(0, COLS * 2 + 1, 4) %}<line class="web" x1="{{ X0 + k * CW / 2 }}" x2="{{ X0 + k * CW / 2 }}" y1="{{ Y0 }}" y2="{{ Y1 }}"/>{% endfor %}
+ {%- for k in range(ROWS * 2 + 1) %}<line class="{{ 'web' if k == 3 else 'hid' }}" x1="{{ X0 }}" x2="{{ X1 }}" y1="{{ Y0 + k * CH / 2 }}" y2="{{ Y0 + k * CH / 2 }}"/>{% endfor %}
+  <path d="M{{ X0 }},{{ Y0 + CH * 1.3 }} H{{ X1 }} M{{ X0 + CW * 4.25 }},{{ Y0 }} V{{ Y1 }}"/>
+  <rect class="pl" x="{{ X0 }}" y="{{ Y0 }}" width="{{ X1 - X0 }}" height="{{ Y1 - Y0 }}"/>
+ </g>
+ <g class="ax">
+ {%- for k in range(COLS * 2 + 1) %}<text class="{{ 'odd' if k % 2 }}" x="{{ X0 + k * CW / 2 }}" y="{{ FY }}" text-anchor="middle">{{ FR0 + k }}</text>{% endfor %}
+  <text class="odd" x="{{ X0 - 10 }}" y="{{ FY }}" text-anchor="end">FR.</text>
+ {%- for k in range(ROWS * 2 + 1) %}<text class="{{ 'odd' if k % 2 }}" x="{{ X0 - 10 }}" y="{{ Y0 + k * CH / 2 + 4 }}" text-anchor="end">{{ ax }}{{ L0 + (ROWS * 2 - k if fl else k) }}</text>{% endfor %}
+ </g>
+ <g class="zl">{% for z in zones %}{% set r, c = CELL(z.id) %}<g class="s-{{ STATUS[z.status] }}">
+  {%- if compact %}<text class="id" x="{{ X0 + (c + 0.5) * CW }}" y="{{ Y0 + (r + 0.5) * CH + 8 }}" text-anchor="middle">{{ z.id }}</text>
+  {%- else %}<text class="id" x="{{ X0 + c * CW + 8 }}" y="{{ Y0 + r * CH + 24 }}">{{ z.id }}</text>{% if z.status != '검사 대기' %}<text class="st" x="{{ X0 + c * CW + 8 }}" y="{{ Y0 + r * CH + 48 }}">{{ z.status }}</text>{% endif %}{% endif %}</g>
+ {%- endfor %}</g>
+ {%- if not compact %}
+ <path class="dim" d="M{{ X0 }},{{ Y1 + 6 }} V{{ Y1 + 36 }} M{{ X1 }},{{ Y1 + 6 }} V{{ Y1 + 36 }} M{{ X0 }},{{ Y1 + 30 }} H{{ X1 }} M{{ X0 - 4 }},{{ Y1 + 34 }} l8,-8 M{{ X1 - 4 }},{{ Y1 + 34 }} l8,-8
+   M{{ X1 + 6 }},{{ Y0 }} H{{ X1 + 38 }} M{{ X1 + 6 }},{{ Y1 }} H{{ X1 + 38 }} M{{ X1 + 32 }},{{ Y0 }} V{{ Y1 }} M{{ X1 + 28 }},{{ Y0 + 4 }} l8,-8 M{{ X1 + 28 }},{{ Y1 + 4 }} l8,-8"/>
+ <text x="{{ (X0 + X1) / 2 }}" y="{{ Y1 + 25 }}" text-anchor="middle">{{ COLS * 2 }} × 800 = {{ '{:,}'.format(COLS * 2 * 800) }}</text>
+ <text x="{{ X1 + 26 }}" y="{{ (Y0 + Y1) / 2 }}" text-anchor="middle" transform="rotate(-90 {{ X1 + 26 }} {{ (Y0 + Y1) / 2 }})">{{ ROWS * 2 }} × 850 = {{ '{:,}'.format(ROWS * 2 * 850) }}</text>
+ <g class="lw"><path d="M24,416 H56"/><path class="web" d="M300,416 H332"/><path class="hid" d="M24,442 H56"/></g>
+ <rect class="key" x="300" y="434" width="32" height="16"/>
+ <text class="h2" x="64" y="420">판 외곽 · 판 이음</text><text class="h2" x="340" y="420">늑판(웹) · 거더 (판 아래)</text>
+ <text class="h2" x="64" y="446">론지 (판 아래)</text><text class="h2" x="340" y="446">검사 구역 (색 = 상태)</text>
+ <g class="tb"><rect x="606" y="402" width="388" height="72"/><path d="M606,420 H994 M606,438 H994 M606,456 H994 M726,402 V474 M880,438 V474"/></g>
+ <text class="tb-b" x="616" y="415">BLASTTRACE</text><text x="736" y="415">시연용 예시 · 실제 도면 아님</text>
+ <text x="616" y="433">SHIP {{ SHIP }}</text><text x="736" y="433">BLK {{ bid }} {{ sn }} 검사 구역도</text>
+ <text x="616" y="451">SCALE NTS</text><text x="736" y="451">DWG BT-{{ bid }}-{{ sk }}-01</text><text x="890" y="451">REV. B</text>
+ <text x="616" y="469">DRAWN</text><text x="736" y="469">CHECKED</text><text x="890" y="469">APPROVED</text>
+ {%- endif %}
+</svg>
+{% endmacro %}
+
+{# 분광 반사율 그래프. 가로 400~860 nm, 세로 반사율 0~0.8. 최근 측정 3개까지 (색은 측정 순서대로 고정) #}
+{% macro spectrum(spec) %}
+{% set PW, PH = 446, 188 %}{% set shown = spec[-3:] %}{% set base = spec|length - shown|length %}
+<div class="legend chart-legend">{% for s in shown %}<span><i class="key" style="background:var(--s{{ loop.index }})"></i>측정 {{ base + loop.index }} · {{ s.at }}</span>{% endfor %}</div>
+<svg class="chart" viewBox="0 0 560 236" role="img" aria-label="측정별 파장 반사율 그래프">
+ <g class="grid">
+ {%- for v in [0, 0.2, 0.4, 0.6, 0.8] %}{% set y = 22 + (1 - v / 0.8) * PH %}<line x1="40" x2="486" y1="{{ y }}" y2="{{ y }}"/><text x="34" y="{{ y + 4 }}" text-anchor="end">{{ v }}</text>{% endfor %}
+ {%- for nm in [450, 550, 650, 750, 850] %}<text x="{{ 40 + (nm - 400) / 460 * PW }}" y="230" text-anchor="middle">{{ nm }}</text>{% endfor %}
+ {%- for nm in [515, 640] %}{% set x = 40 + (nm - 400) / 460 * PW %}<line class="band" x1="{{ x }}" x2="{{ x }}" y1="22" y2="210"/><text class="bandlab" x="{{ x }}" y="14" text-anchor="middle">{{ nm }}</text>{% endfor %}
+ </g>
+ {%- for s in shown %}{% set n = loop.index %}
+ <polyline class="s" style="stroke:var(--s{{ n }})" points="{% for nm in WL %}{{ 40 + (nm - 400) / 460 * PW }},{{ 22 + (1 - [s.refl[loop.index0], 0.8]|min / 0.8) * PH }} {% endfor %}"/>
+ {%- set ex = 40 + (WL[-1] - 400) / 460 * PW %}{% set ey = 22 + (1 - [s.refl[-1], 0.8]|min / 0.8) * PH %}
+ <circle class="end" cx="{{ ex }}" cy="{{ ey }}" r="4.5" style="fill:var(--s{{ n }})"/><text class="lab" x="{{ ex + 10 }}" y="{{ ey + 4 }}">측정 {{ base + n }}</text>
+ {%- for nm in WL %}<circle class="hit" cx="{{ 40 + (nm - 400) / 460 * PW }}" cy="{{ 22 + (1 - [s.refl[loop.index0], 0.8]|min / 0.8) * PH }}" r="9"><title>측정 {{ base + n }} · {{ nm }} nm · 반사율 {{ s.refl[loop.index0] }}</title></circle>{% endfor %}
+ {%- endfor %}
+</svg>
+<details class="tbl"><summary>값 표로 보기</summary><table><tr><th>파장 (nm)</th>{% for s in shown %}<th>측정 {{ base + loop.index }}</th>{% endfor %}</tr>
+ {%- for nm in WL %}{% set i = loop.index0 %}<tr><td>{{ nm }}</td>{% for s in shown %}<td>{{ s.refl[i] }}</td>{% endfor %}</tr>{% endfor %}</table></details>
+{% endmacro %}
+
+{# 사진 위 표시. rects는 x0~y1(0~1 비율)을 가진 행, polys는 [(이름, [[x, y] * 4])], pcls는 다각형 색 (없으면 cls) #}
+{% macro photo(src, rects=[], cls='', ids=False, polys=[], pcls=None, origin=None) %}
+{% set pc = cls if pcls is none else pcls %}
+<div class="photo"><img src="{{ src }}" alt="">
+ {%- if origin %}<span class="org{{ ' syn' if origin == '합성' }}" title="사진 출처 · 성능은 출처별로 따로 셉니다">{{ origin }} {{ '데이터' if origin == '공개' else '사진' }}</span>{% endif %}
+ <svg viewBox="0 0 1 1" preserveAspectRatio="none">
+  {%- for b in rects %}<rect class="box {{ cls }}" x="{{ b.x0 }}" y="{{ b.y0 }}" width="{{ b.x1 - b.x0 }}" height="{{ b.y1 - b.y0 }}"/>{% endfor %}
+  {%- for name, pts in polys %}<polygon class="box {{ pc }}" points="{% for x, y in pts %}{{ x }},{{ y }} {% endfor %}"/>{% endfor %}
+ </svg>
+ {%- for b in rects %}<span class="num {{ cls }}" style="left:{{ b.x0 * 100 }}%;top:{{ b.y0 * 100 }}%">{{ ('I-%02d' % b.id) if ids else ('%02d' % loop.index) }}</span>{% endfor %}
+ {#- 다각형 이름은 다각형 바깥 아래에: 안쪽 사각형(지적) 이름·박스를 덮지 않게. 사진 맨 아래에 붙으면 안쪽으로 #}
+ {%- for name, pts in polys %}{% set by = pts|map(attribute='1')|max %}
+ <span class="num {{ 'at-b' if by > 0.9 }} {{ pc }}" style="left:{{ (pts|map(attribute='0')|min) * 100 }}%;top:{{ by * 100 }}%">{{ name }}</span>{% endfor %}
+</div>
+{% endmacro %}

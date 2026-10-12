@@ -1,0 +1,22 @@
+# 실행 중 생기는 DB와 업로드 사진
+data/
+
+# 예선 목업 작업 파일 (세션 이동 때 복사됨, 저장소에 올리지 않는다)
+blasttrace_mockups/
+bt2/
+bt3/
+iso8502_p9.png
+
+# 큰 파일은 구글 드라이브에 둔다 (모델, 데이터셋, 시편 사진)
+*.pth
+*.pt
+*.onnx
+datasets/
+
+# 비밀 정보
+.env
+
+__pycache__/
+.venv/
+.claude/
+.ipynb_checkpoints/

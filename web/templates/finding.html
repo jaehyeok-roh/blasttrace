@@ -1,0 +1,61 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <a href="/blocks/{{ BLK(f.zone_id) }}?s={{ f.zone_id[0] }}">BLK {{ BLK(f.zone_id) }}</a> / <b>{{ f.zone_id }}</b> / I-{{ '%02d' % f.id }}{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>지적 I-{{ '%02d' % f.id }} · {{ f.zone_id }} <span class="sub mono" style="font-size:15px;font-weight:500">{{ LOC(f.zone_id) }}</span></h1><p>{{ f.note or '내용 미입력' }}</p></div>
+ <span><span class="tag c-mute">{{ '도장 후' if p.kind == 'post' else '도장 전' }}</span>{% if f.reworks %} <span class="tag c-punch">재조치 {{ f.reworks }}회</span>{% endif %} {{ ui.tag(FINDING[f.status]) }}</span>
+</div>
+{% if f.status == 'fixed' %}<div class="banner">작업자가 조치 완료를 등록했습니다. 폰에서 재검사 사진을 찍으면 여기에 바로 뜹니다.</div>{% endif %}
+<div class="panel">
+ <div class="ph"><h2>재검사 · 같은 위치 비교</h2>
+  {% if r %}<span class="note mono">{{ r.ts }}</span>{% endif %}</div>
+ <div class="pb">
+  {% if r %}<div class="verdict {{ 'ok' if r.success else 'fail' }}">
+   {% if r.success %}각도가 달라도 이전 지적 위치를 자동으로 찾았습니다<span>두 사진에서 같은 특징점 {{ '{:,}'.format(r.matches) }}개 일치</span>
+   {% else %}자동으로 위치를 찾지 못했습니다<span>검사원이 직접 같은 위치인지 확인합니다</span>{% endif %}
+  </div>{% endif %}
+  <div class="pair">
+  <div><h3>조치 전 · {{ f.ts }}</h3>{{ ui.photo(p.src, [f], 'red', ids=True, origin=p.origin) }}</div>
+  <div><h3>재검사</h3>
+   {% if rp %}{{ ui.photo(rp.src, [], 'red', polys=[('이전 지적 위치', poly)] if poly else [], origin=rp.origin) }}
+   {% else %}<div class="photo" style="aspect-ratio:{{ p.w }}/{{ p.h }};display:grid;place-items:center;line-height:1.5"><span class="note">재검사 사진 대기 중</span></div>{% endif %}
+  </div>
+  </div>
+ </div>
+</div>
+{% if spectral and p.kind == 'post' %}
+<div class="panel">
+ <div class="ph"><h2>분광 · 같은 위치 도막 측정</h2>
+  <span class="note">{{ '센서 시뮬레이터 (예시 값)' if sim else '센서 → 서버 바로 전송' }}{% if z.mock %} · <span class="tag c-mute">예시</span>{% endif %}</span></div>
+ <div class="pb">
+  {% if spec %}{% set s = spec[-1] %}
+  <div class="verdict {{ 'fail' if s.rust_index >= 1.5 else 'ok' }}">{{ '⚠ 도막 아래 녹 신호' if s.rust_index >= 1.5 else '✓ 녹 신호 없음' }}<span>최근 측정 {{ s.at }} · 녹 지표 {{ s.rust_index }} (기준 1.5)</span></div>
+  <div class="spec-cols">
+   <div>{{ ui.spectrum(spec) }}</div>
+   <div>{% set off = [spec|length - 3, 0]|max %}{% for s in spec %}
+    <div class="spec-card">
+     <div class="row"><span>{% if loop.index > off %}<i class="key" style="background:var(--s{{ loop.index - off }})"></i>{% endif %}<b>측정 {{ loop.index }}</b></span><span class="note mono">{{ s.at }}</span></div>
+     <div class="big">{{ s.rust_index }} <span class="tag {{ 'c-punch' if s.rust_index >= 1.5 else 'c-fixed' }}">{{ '⚠ ' if s.rust_index >= 1.5 else '✓ ' }}{{ s.label }}</span></div>
+     <div class="note">녹 지표 · {{ s.source }}</div>
+    </div>{% if not loop.last %}<div class="arrow">↓ 조치 후</div>{% endif %}{% endfor %}</div>
+  </div>
+  {% else %}<div class="empty">{% if armed %}<b>센서 대기 중</b> · 센서를 지적 위치에 대고 측정 버튼을 누르세요{% else %}폰의 지적 카드에서 <b>분광 측정</b>을 누르면 여기에 바로 뜹니다{% endif %}</div>{% endif %}
+  <p class="note" style="margin:12px 0 0">녹 지표 = 640/515 nm 반사율 비 (임시 규칙). 녹(산화철)은 붉은빛 반사가 커서 값이 올라가고, 정상 도막은 1 근처입니다. 가로 = 파장(nm), 세로 = 반사율 · 위치 ID <span class="mono">{{ loc }}</span></p>
+ </div>
+</div>
+{% endif %}
+<div class="cols">
+ <div class="panel"><div class="ph"><h2>조치 기록</h2></div><div class="pb">
+  {% for a in actions %}<div class="row"><span>{{ a.note or '내용 미입력' }}{% if a.src %} · <a class="sub" href="{{ a.src }}" target="_blank">완료 사진</a>{% endif %}</span><span class="note mono">{{ a.ts }}</span></div>
+  {% else %}<p class="note">아직 조치 기록이 없습니다.</p>{% endfor %}
+ </div></div>
+ <div class="panel"><div class="ph"><h2>검사원 판정</h2></div><div class="pb">
+  {% if f.status == 'recheck' %}
+  <form method="post" action="/findings/{{ f.id }}/close"><button class="btn pri" style="width:100%">같은 위치 확인 · Close-out</button></form>
+  <form method="post" action="/findings/{{ f.id }}/reopen" style="margin-top:8px"><button class="btn" style="width:100%">아직 남아 있음 · 재조치 요청</button></form>
+  {% elif f.status == 'closed' %}<p class="note">종결된 지적입니다.</p>
+  {% else %}<p class="note">재검사 사진이 올라오면 판정할 수 있습니다.</p>{% endif %}
+  <p class="note" style="margin-top:12px"><a href="/zones/{{ f.zone_id }}">구역 이력 보기 →</a></p>
+ </div></div>
+</div>
+{% endblock %}

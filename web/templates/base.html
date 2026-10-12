@@ -1,0 +1,23 @@
+{% import '_ui.html' as ui %}<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlastTrace</title>
+<link rel="stylesheet" href="/static/style.css?v={{ CSS_V() }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="app">
+ <aside class="side">
+  <a class="logo" href="/">BlastTrace<i>.</i></a>
+  <nav class="nav"><a href="/" class="{{ 'on' if nav == 'home' }}">검사 현황</a><a href="/data" class="{{ 'on' if nav == 'data' }}">판정 데이터</a></nav>
+  <div class="foot">폰 접속 주소{% for u in phone %}<b class="mono">{{ u }}</b>{% else %}<b>네트워크 없음</b>{% endfor %}</div>
+ </aside>
+ <div>
+  <header class="top"><div class="crumb">{% block crumb %}{% endblock %}</div><div class="sub">{{ INSPECTOR }}</div></header>
+  <main class="main">{% if step is defined %}{{ ui.steps(step) }}{% endif %}{% block body %}{% endblock %}</main>
+ </div>
+</div>
+{% block poll %}{{ ui.poll(toast=True) }}{% endblock %}
+</body>
+</html>

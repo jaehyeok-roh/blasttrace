@@ -1,0 +1,14 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block crumb %}<b>{{ SHIP }}</b> / 블록 선택{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>호선 {{ SHIP }} · 블록 선택</h1><p>아래 선저 평면에서 파란 블록을 누르면 그 블록의 평면도로 들어갑니다. 검사 데이터는 선저 B12의 좌현(B12P)·우현(B12S)에만 있습니다.</p></div>
+</div>
+<div class="panel"><div class="ph"><h2>블록 분할도</h2><span class="note">위 = 측면 · 아래 = 선저 평면 (위쪽이 좌현)</span></div>
+ <div class="pb">{{ ui.ship('/blocks/') }}</div></div>
+<div class="cols" style="grid-template-columns:1fr 1fr">
+ {% for b in blocks %}<div class="panel"><div class="ph"><h2>BLK {{ b.id }} <span class="note">{{ b.side }} 선저</span></h2><span class="note">구역 {{ b.n }}개 · 미종결 지적 {{ b.open }}건</span></div><div class="pb">
+  <div class="legend" style="margin:0 0 14px">{% for s, n in b.counts.items() if n %}<span class="tag c-{{ STATUS[s] }}">{{ s }} {{ n }}</span>{% endfor %}</div>
+  <a class="btn blue" style="width:100%" href="/blocks/{{ b.id }}">평면도 열기 →</a></div></div>{% endfor %}
+</div>
+{% endblock %}

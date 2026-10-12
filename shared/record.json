@@ -1,0 +1,117 @@
+{
+ "zone_id": "Z-04",
+ "location": "내저판 윗면 · Fr.126–128 · L1–L3 (P)",
+ "block": "B12P",
+ "status": "조치 완료",
+ "findings": [
+  {
+   "finding_id": "I-02",
+   "stage": "도장 전",
+   "status": "Close-out",
+   "note": "잔류 녹 · 재블라스팅 필요",
+   "score": 0.81,
+   "box": [
+    0.6645,
+    0.0486,
+    0.8842,
+    0.2919
+   ],
+   "photo": "/static/samples/before.png",
+   "confirmed_at": "10-02 09:12",
+   "actions": [
+    {
+     "note": "부분 재블라스팅",
+     "photo": null,
+     "at": "10-02 15:30"
+    }
+   ],
+   "rechecks": [
+    {
+     "success": true,
+     "matches": 1543,
+     "photo": "/static/samples/after.png",
+     "at": "10-03 10:05"
+    }
+   ],
+   "spectra": [],
+   "reworks": 0,
+   "closed_at": "10-03 10:07"
+  },
+  {
+   "finding_id": "I-03",
+   "stage": "도장 후",
+   "status": "조치 완료",
+   "note": "녹 번짐 · 보수 도장 필요",
+   "score": 0.99,
+   "box": [
+    0.7605,
+    0.1432,
+    0.8211,
+    0.2703
+   ],
+   "photo": "/static/samples/painted.png",
+   "confirmed_at": "10-08 14:05",
+   "actions": [
+    {
+     "note": "부분 재블라스팅 · 보수 도장",
+     "photo": null,
+     "at": "10-09 16:40"
+    }
+   ],
+   "rechecks": [],
+   "spectra": [],
+   "reworks": 0,
+   "closed_at": null
+  },
+  {
+   "finding_id": "I-04",
+   "stage": "도장 후",
+   "status": "Close-out",
+   "note": "도막 아래 이물·요철 · 부착 불량 우려",
+   "score": null,
+   "box": [
+    0.0197,
+    0.6351,
+    0.1842,
+    0.8108
+   ],
+   "photo": "/static/samples/painted.png",
+   "confirmed_at": "10-08 14:05",
+   "actions": [
+    {
+     "note": "요철 부위 샌딩 · 염분 확인 후 보수 도장",
+     "photo": null,
+     "at": "10-09 11:00"
+    }
+   ],
+   "rechecks": [],
+   "spectra": [],
+   "reworks": 0,
+   "closed_at": "10-09 11:20"
+  }
+ ],
+ "hold_points": [
+  {
+   "hp": 1,
+   "name": "도장 전 표면처리 검사",
+   "released": "품질관리자 A · 10-03 10:07"
+  },
+  {
+   "hp": 2,
+   "name": "도장 후 검사",
+   "released": ""
+  }
+ ],
+ "recurrences": [
+  {
+   "pre": "I-02",
+   "post": "I-03"
+  }
+ ],
+ "rejected_spots": [
+  {
+   "post": "I-04",
+   "reason": "먼지·오염"
+  }
+ ]
+}

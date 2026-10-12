@@ -1,0 +1,11 @@
+{% extends 'm_base.html' %}{% import '_ui.html' as ui %}
+{% block body %}
+<a class="note" href="/m">← 선체로</a>
+<h1>BLK {{ bid }} · 위치 선택</h1>
+<p class="note" style="margin:0 0 6px">1. 단면에서 면을 고르세요 (블록이 뒤집혀 있어도 배 기준 이름)</p>
+{{ ui.section(bid, '/m/blocks/' ~ bid, s) }}
+<p class="note" style="margin:18px 0 4px">2. {{ SURFACES[s][0] }} 평면도에서 구역을 누르세요</p>
+{{ ui.plan(zones, '/m/', compact=True) }}
+<p class="note" style="margin:22px 0 4px">또는 구역 목록에서 고르기</p>
+<div class="zlist">{% for z in zones %}<a href="/m/{{ z.id }}"><span><span class="mono">{{ z.id }}</span> <span class="note">{{ LOC(z.id) }}</span></span>{{ ui.tag(z.status) }}</a>{% endfor %}</div>
+{% endblock %}

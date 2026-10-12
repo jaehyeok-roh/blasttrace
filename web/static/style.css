@@ -1,0 +1,279 @@
+/* 예선 목업(design.md)과 같은 색: 흰 배경, 검정 글자, 포인트 블루 하나 + 상태 7색 */
+:root{--ink:#111;--sub:#6E6E73;--blue:#1F4FFF;--blue14:rgba(31,79,255,.14);--line:#E6E6EB;--soft:#F2F2F5;
+  /* 그래프 계열 색 (측정 순서대로 고정, dataviz 검증 통과) */ --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:14px/1.5 Pretendard,'Apple SD Gothic Neo','맑은 고딕',sans-serif;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
+a{color:inherit;text-decoration:none}
+.mono{font-family:'JetBrains Mono',Consolas,monospace}
+.sub{color:var(--sub)}
+
+/* 노트북 화면 틀 */
+.app{display:grid;grid-template-columns:212px 1fr;min-height:100vh}
+.side{border-right:1px solid var(--line);padding:30px 22px;display:flex;flex-direction:column}
+.logo{font-size:23px;font-weight:700;letter-spacing:-.055em;margin-bottom:34px}
+.logo i{color:var(--blue);font-style:normal}
+.nav a{display:block;padding:9px 12px;border-radius:7px;color:var(--sub)}
+.nav a.on{background:var(--blue14);color:var(--blue);font-weight:600}
+.foot{margin-top:auto;border-top:1px solid var(--line);padding-top:16px;font-size:12px;color:var(--sub);word-break:break-all}
+.foot b{display:block;color:var(--ink);font-weight:500;margin-top:4px}
+.top{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px}
+.crumb{font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px;color:var(--sub)}
+.crumb b{color:var(--ink);font-weight:500}
+.main{padding:24px 28px}
+.title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:16px}
+.title h1{font-size:23px;margin:0;letter-spacing:-.02em}
+.title p{margin:6px 0 0;color:var(--sub);font-size:13.5px}
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+.panel{border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:18px}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.ph h2{margin:0;font-size:14.5px}
+.pb{padding:16px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.note{font-size:12.5px;color:var(--sub)}
+.banner{border:1px solid var(--blue);background:var(--blue14);color:var(--blue);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-weight:600}
+pre.report{white-space:pre-wrap;font:12.5px/1.7 Pretendard,'맑은 고딕',sans-serif;margin:0}
+
+/* 시연 흐름 진행 막대 */
+.steps{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;list-style:none;margin:0 0 22px;padding:0}
+.steps li{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--soft);color:var(--sub)}
+.steps b{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#fff;font:700 13px 'JetBrains Mono',Consolas,monospace}
+.steps span{font-weight:700;font-size:14px;line-height:1.35;min-width:0}
+.steps small{display:block;font-weight:400;font-size:12px}
+.steps li.done{background:var(--blue14);color:var(--blue)}
+.steps li.on{background:var(--blue);color:#fff}
+.steps li.on b{color:var(--blue)}
+
+/* 재검사 결과 한 줄 */
+.verdict{font-size:20px;font-weight:700;padding:14px 18px;border-radius:10px;margin-bottom:16px;background:var(--blue14);color:var(--blue)}
+.verdict span{font-size:14px;font-weight:500;margin-left:12px;opacity:.85}
+.verdict.fail{background:#FDECEC;color:#B42318}
+
+/* 버튼, 태그 */
+.btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 18px;border-radius:8px;font:600 14px Pretendard,'맑은 고딕',sans-serif;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+.tag{display:inline-flex;align-items:center;border-radius:6px;padding:3px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font:14px Pretendard,'맑은 고딕',sans-serif}
+
+/* 구역 상태 색은 뜻으로 묶는다: 검사원 할 일 = 주황(검토 대기, 재검사 대기), 작업자 할 일 = 빨강(Punch Open, 촬영 불량),
+   기다림 = 회청·옅은 파랑(검사 대기, 조치 완료), 통과 = 옅은 초록(Close-out, HP1) · 진한 초록(Release, HP2). 칸(s-)과 태그(c-) */
+.s-wait{background:#F4F6FA;border:1px solid #D5DAE5;color:#5B6070}
+.s-badimg{background:#FDECEC;border:1px dashed #E9A7A7;color:#B42318}
+.s-review{background:#F97316;color:#fff}
+.s-punch{background:#DC2626;color:#fff}
+.s-fixed{background:#E7ECF8;border:1px solid #9FB2DC;color:#1E3A8A}
+.s-recheck{background:#FED7AA;border:1px solid #F59E0B;color:#9A3412}
+.s-close{background:#E3F4EA;border:1px solid #9CD3B0;color:#146C43}
+.s-release{background:#15803D;color:#fff}
+.c-wait{background:#EEF1F6;color:#5B6070}
+.c-badimg{background:#FDECEC;color:#B42318}
+.c-review{background:#FFE9D5;color:#B4530F}
+.c-punch{background:#FDE3E3;color:#B42318}
+.c-fixed{background:#E7ECF8;color:#1E3A8A}
+.c-recheck{background:#FFEDD5;color:#9A3412}
+.c-close{background:#E3F4EA;color:#146C43}
+.c-release{background:#15803D;color:#fff}
+.c-mute{background:var(--soft);color:var(--sub)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+
+/* AI 후보 채택/반려 */
+/* AI 후보 판정 카드: 확대 사진 + 지적/반려 + 반려 이유 칩 */
+.cc{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.crop{position:relative;border-radius:8px;background-repeat:no-repeat;background-color:var(--soft)}
+.crop i{position:absolute;border:2px solid var(--blue);border-radius:2px}
+.cc[data-d=pick] .crop i{border-color:#DC2626}
+.cc[data-d=rej] .crop i{border:2px dashed #9CA3AF}
+.cc-h{font-weight:600;margin-bottom:8px}
+.dec{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dec .btn{height:44px;font-size:15px}
+.cc[data-d=pick] .d-pick{background:#DC2626;border-color:#DC2626;color:#fff}
+.cc[data-d=rej] .d-rej{background:var(--ink);border-color:var(--ink);color:#fff}
+.chips{display:none;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cc[data-d=rej] .chips{display:flex}
+.cc[data-d=rej]:not(:has(.chip.on)) .chips::before{content:'반려 이유를 고르세요';width:100%;font-size:12px;color:#B4530F}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;font:600 12.5px Pretendard,'맑은 고딕',sans-serif;color:var(--ink);cursor:pointer}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.box.pick{stroke:#DC2626;fill:rgba(220,38,38,.12)}
+.box.rej{stroke:#9CA3AF;fill:none;stroke-dasharray:6 4}
+.box.hot{stroke-width:5}
+/* 노트북 알림: 폰에서 사진 도착 */
+.toast{position:fixed;right:24px;bottom:24px;z-index:9;display:flex;gap:12px;align-items:center;max-width:380px;background:#fff;border:1px solid var(--line);border-left:4px solid #F97316;border-radius:12px;padding:10px 16px 10px 10px;box-shadow:0 10px 30px rgba(0,0,0,.16);animation:tin .25s ease-out}
+.toast img{width:96px;height:64px;object-fit:cover;border-radius:6px;flex:none}
+.toast b{display:block;font-size:15px}
+.toast small{color:var(--blue);font-weight:600;font-size:13px}
+@keyframes tin{from{transform:translateY(12px);opacity:0}}
+.dwg .z.flash{animation:flash 1s ease-in-out 4}
+@keyframes flash{50%{stroke:var(--ink);stroke-width:5}}
+@media (prefers-reduced-motion:reduce){.toast,.dwg .z.flash{animation:none}}
+.row.mock{color:var(--sub)}
+.draw .photo{cursor:crosshair;touch-action:none;user-select:none}
+.draw .photo img{pointer-events:none}
+.box.manual{stroke-dasharray:6 4}
+.btn.mini{height:26px;padding:0 10px;font-size:12px;margin-left:6px}
+
+/* 판정 데이터: 숫자 타일 + 반려 이유 막대 + 라벨 표 */
+.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.tile{border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile .v{font:700 30px/1.2 'JetBrains Mono',Consolas,monospace}
+.tile .v.sm{font:700 21px/1.7 Pretendard,'맑은 고딕',sans-serif}
+.tile .k{font-weight:600;margin-top:4px}
+.bar{display:grid;grid-template-columns:92px minmax(0,1fr) 26px;align-items:center;gap:10px;padding:7px 0;font-size:13px}
+.bar .bt{background:var(--soft);height:14px;border-radius:0 4px 4px 0}
+.bar .bt i{display:block;height:100%;background:var(--s1);border-radius:0 4px 4px 0}
+.bar .mono{text-align:right}
+.lt{width:100%;border-collapse:collapse;font-size:13px}
+.lt th{font-weight:600;color:var(--sub);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.lt td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+
+/* 홈 선체 실루엣: 블록 칸은 선체 모양으로 잘리고, 데이터가 있는 블록만 파랗다 */
+.crumb a{color:var(--sub)}
+.crumb a:hover{color:var(--ink)}
+
+/* 블록 평면도 (도면 양식): 칸 색 = 구역 상태, 선은 칸 위에, 구역 이름은 맨 위에 칸 색 테두리로 */
+.dwg{display:block;width:100%;height:auto}
+.dwg text{font:11px 'JetBrains Mono',Consolas,monospace;fill:var(--sub)}
+.dwg .sheet,.dwg .tb{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dwg .h2{font:11.5px Pretendard,'맑은 고딕',sans-serif}
+.dwg .tb-b{font-weight:700;fill:var(--ink)}
+.dwg .fwd{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dwg .z{fill:var(--f);stroke:var(--b,none)}
+.dwg .s-badimg .z{stroke-dasharray:5 3}
+.dwg a:hover .z{stroke:var(--ink);stroke-width:2.5}
+.dwg a:focus-visible .z{stroke:var(--blue);stroke-width:3}
+.dwg .lw{pointer-events:none;fill:none;stroke:#2B2F3A;stroke-width:1.2}
+.dwg .hid{stroke-dasharray:7 4;stroke-width:.8;opacity:.5}
+.dwg .web{stroke-dasharray:12 4;stroke-width:1.5;opacity:.7}
+.dwg .pl{stroke-width:2.2}
+.dwg .dim{fill:none;stroke:var(--sub);stroke-width:.8}
+.dwg .key{fill:#F4F6FA;stroke:#D5DAE5}
+.dwg .ax text{font-weight:600;fill:var(--ink)}
+.dwg .ax .odd{font-weight:400;fill:var(--sub)}
+.dwg .zl{pointer-events:none}
+.dwg .zl text{fill:currentColor;stroke:var(--f);stroke-width:5;paint-order:stroke;stroke-linejoin:round}
+.dwg .zl .id{font-size:14px}
+.dwg .zl .st{font:700 16px Pretendard,'맑은 고딕',sans-serif}
+.dwg.compact .ax text{font-size:20px}
+.dwg.compact .ax .odd{display:none}
+.dwg.compact .zl .id{font-size:21px;font-weight:600}
+.dwg .s-wait{--f:#F4F6FA;--b:#D5DAE5}
+.dwg .s-badimg{--f:#FDECEC;--b:#E9A7A7}
+.dwg .s-review{--f:#F97316}
+.dwg .s-punch{--f:#DC2626}
+.dwg .s-fixed{--f:#E7ECF8;--b:#9FB2DC}
+.dwg .s-recheck{--f:#FED7AA;--b:#F59E0B}
+.dwg .s-close{--f:#E3F4EA;--b:#9CD3B0}
+.dwg .s-release{--f:#15803D}
+/* 홈 블록 분할도: 측면(블록 12 열 강조) + 선저 평면(좌현 P 위 · 우현 S 아래). 파란 칸만 누를 수 있다 */
+.dwg .vt{font:700 12.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--ink)}
+.dwg .thin{stroke-width:.8}
+.dwg .cl{stroke-dasharray:16 4 3 4;stroke-width:.9}
+.dwg .hl{fill:var(--blue14)}
+.dwg .hb{fill:var(--blue)}
+.dwg .bh{stroke-width:1.8}
+.dwg .db{fill:#E4E7EE}
+.dwg .tk{font:600 10px Pretendard,'맑은 고딕',sans-serif;fill:#5B6070}
+.dwg .tk.sm{font-size:9px}
+.dwg .win{stroke-dasharray:2.5 2.5;stroke-width:1.6}
+.dwg .blk{fill:#fff;stroke:#C9CBD3}
+.dwg .blk.on{fill:var(--blue);stroke:#fff;stroke-width:2;cursor:pointer}
+.dwg a:hover .blk.on{fill:#1438CC}
+.dwg a:focus-visible .blk.on{stroke:var(--ink);stroke-width:3}
+.dwg .bn.on{font-weight:700;fill:var(--blue)}
+.dwg .bl,.dwg .bs{pointer-events:none}
+.dwg .bl{font-size:10.5px;stroke:#fff;stroke-width:4;paint-order:stroke;stroke-linejoin:round}
+.dwg .bl.on{stroke:none}
+.dwg .bl.on{font:700 15px 'JetBrains Mono',Consolas,monospace;fill:#fff}
+.dwg .bs{font:600 12px Pretendard,'맑은 고딕',sans-serif;fill:#fff}
+.dwg.ship.compact text:not(.on):not(.bs),.dwg.ship.compact .fwd{display:none}
+.dwg.ship.compact .bl.on{font-size:24px}
+.dwg.ship.compact .bs{font-size:19px}
+/* 면 고르기 (중앙 횡단면): 지금 블록 쪽 네 면만 누를 수 있다 */
+.secwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
+.sec{max-width:430px;justify-self:center}
+.sec .other{fill:rgba(31,79,255,.05)}
+.sec .sfa{fill:rgba(31,79,255,.12);cursor:pointer}
+.sec .sfa.on{fill:rgba(31,79,255,.30)}
+.sec a:hover .sfa{fill:rgba(31,79,255,.22)}
+.sec .sf{fill:none;stroke:#9DB4F5;stroke-width:4;pointer-events:none}
+.sec .sf.on{stroke:var(--blue);stroke-width:6}
+.sec a:hover .sf{stroke:var(--blue)}
+.sec .hit{fill:none;stroke:transparent;stroke-width:18;cursor:pointer}
+.sec .mk{cursor:pointer}
+.sec .mk circle{fill:#fff;stroke:var(--blue);stroke-width:1.5}
+.sec .mk text{font:700 11px 'JetBrains Mono',Consolas,monospace;fill:var(--blue)}
+.sec .mk.on circle{fill:var(--blue)}
+.sec .mk.on text{fill:#fff}
+.sec .bk{font:600 13px 'JetBrains Mono',Consolas,monospace;fill:var(--sub)}
+.sec .bk.on{fill:var(--blue);font-weight:700}
+.surf{display:grid;gap:8px}
+.sbtn{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:10px;color:var(--ink)}
+.sbtn b{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--blue);color:var(--blue);font:700 12px 'JetBrains Mono',Consolas,monospace}
+.sbtn span{font-weight:600}
+.sbtn small{display:block;font-weight:400;font-size:12px;color:var(--sub)}
+.sbtn:hover{border-color:var(--blue)}
+.sbtn.on{border-color:var(--blue);background:var(--blue14)}
+.sbtn.on b{background:var(--blue);color:#fff}
+.m .secwrap{grid-template-columns:1fr;gap:10px}
+.m .surf{grid-template-columns:1fr 1fr}
+.m .sbtn{padding:8px 10px}
+/* 분광: 판정 배너 + 반사율 그래프 + 측정 카드 */
+.spec-cols{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:22px;align-items:start}
+.chart{width:100%;height:auto;display:block}
+.chart .grid line{stroke:#ECECEF;stroke-width:1}
+.chart .grid .band{stroke:#C9C9D1}
+.chart text{font:500 11px 'JetBrains Mono',Consolas,monospace;fill:var(--sub)}
+.chart .bandlab{font-weight:700;fill:var(--ink)}
+.chart .s{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .end{stroke:#fff;stroke-width:2}
+.chart .lab{font:600 12px Pretendard,'맑은 고딕',sans-serif;fill:var(--ink)}
+.chart .hit{fill:transparent}
+.chart .hit:hover{fill:rgba(17,17,17,.12)}
+.chart-legend{margin:0 0 6px;font-size:12.5px;color:var(--sub)}
+.chart-legend span{margin-right:14px}
+.key{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.tbl{margin-top:8px;font-size:12px;color:var(--sub)}
+.tbl table{border-collapse:collapse;margin-top:6px}
+.tbl td,.tbl th{border:1px solid var(--line);padding:3px 10px;text-align:right;font-family:'JetBrains Mono',Consolas,monospace}
+.spec-card{border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.spec-card .row{padding:0;border:0}
+.spec-card .big{font:700 30px/1.2 'JetBrains Mono',Consolas,monospace;margin:4px 0;display:flex;align-items:center;gap:10px}
+.spec-card .big .tag{font-family:Pretendard,'맑은 고딕',sans-serif}
+.arrow{text-align:center;color:var(--sub);font-size:12.5px;margin:6px 0}
+.empty{border:1px dashed #C9C9D1;border-radius:10px;padding:34px 20px;text-align:center;color:var(--sub);font-size:15px}
+.mres{border-radius:10px;padding:12px 14px;font-weight:700;font-size:17px;margin:4px 0 10px}
+.mres span{display:block;font-size:13px;font-weight:500;margin-top:2px}
+.mres.bad{background:#FDECEC;color:#B42318}
+.mres.good{background:var(--blue14);color:var(--blue)}
+
+/* 사진 위 표시: 박스 좌표는 0~1 비율이라 SVG viewBox 0 0 1 1로 겹친다 */
+.photo{position:relative;line-height:0;border-radius:8px;overflow:hidden;background:var(--soft)}
+.photo img{width:100%;display:block}
+.photo svg{position:absolute;inset:0;width:100%;height:100%}
+.box{fill:rgba(31,79,255,.14);stroke:var(--blue);stroke-width:3;vector-effect:non-scaling-stroke}
+.box.weak{fill:none;stroke:#fff;stroke-dasharray:6 5}
+.box.red{fill:rgba(220,38,38,.12);stroke:#DC2626}
+.box.prev{fill:none;stroke-dasharray:7 5}
+.num{position:absolute;font:700 11.5px/1.5 'JetBrains Mono',Consolas,monospace;color:#fff;background:var(--blue);padding:1px 6px;border-radius:0 0 3px 0;white-space:nowrap}
+.num.red{background:#DC2626}
+.org{position:absolute;bottom:8px;right:8px;font:600 12px/1.7 Pretendard,'맑은 고딕',sans-serif;padding:0 8px;border-radius:4px;background:rgba(17,17,17,.72);color:#fff}
+.org.syn{background:#B4530F}
+.num.at-b{transform:translateY(-100%);border-radius:0 3px 0 0}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pair h3{font-size:13px;margin:0 0 8px}
+.spec{margin-top:16px;border-top:1px solid var(--line)}
+.spec .row:first-child{border-bottom:0}
+
+/* 폰 화면 */
+.m{max-width:480px;margin:0 auto;padding:16px 16px 40px}
+.mtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.m h1{font-size:21px;margin:4px 0 2px}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 6px}
+.big{width:100%;height:54px;font-size:16px;position:relative}
+.vh{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+.msg{background:var(--blue14);color:var(--blue);border-radius:10px;padding:12px 14px;font-weight:600;margin-bottom:12px}
+.zlist a{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line);font-weight:600}
+body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rgba(255,255,255,.85);display:grid;place-items:center;font-size:18px;font-weight:700}

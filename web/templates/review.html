@@ -1,0 +1,100 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block poll %}{% endblock %}{# 판정하는 도중에 다시 그려지면 안 된다 #}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <a href="/blocks/{{ BLK(p.zone_id) }}?s={{ p.zone_id[0] }}">BLK {{ BLK(p.zone_id) }}</a> / <b>{{ p.zone_id }}</b> / AI 후보 확인{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>AI 후보 확인 · {{ p.zone_id }} <span class="sub mono" style="font-size:15px;font-weight:500">{{ LOC(p.zone_id) }}</span></h1>
+  <p>AI는 다시 볼 곳만 제안합니다. 후보마다 검사원이 <b>지적</b> 또는 <b>반려 + 이유</b>를 고르고, 그 판단이 그대로 학습 라벨이 됩니다. 점수는 정답 확률이 아닙니다.</p></div>
+ <span><span class="tag c-review">후보 {{ cands|length }}건</span> <span class="tag c-mute mono">{{ p.model }}</span></span>
+</div>
+<form method="post" class="cols" onsubmit="return !!(this.querySelector('[name=pick]:checked') || this.querySelector('input.manual')) || confirm({{ ('지적 없이 Release 완료합니다. Hold Point 2가 바로 해제됩니다. 계속할까요?' if p.kind == 'post' else '지적 없이 Close-out합니다. Hold Point 1(도장 착수 승인)이 바로 해제됩니다. 계속할까요?')|tojson|forceescape }})">
+ <div class="panel"><div class="ph"><h2>{{ '도장 후 사진' if p.kind == 'post' else '도장 전 사진' }}</h2><span class="note mono">반사 {{ '%.1f' % (p.glare * 100) }}% · 선명도 {{ p.blur|int }}</span></div>
+  <div class="pb{{ ' draw' if not p.reviewed }}">{{ ui.photo(p.src, cands, polys=polys, pcls='red prev', origin=p.origin) }}
+  {% if polys %}<p class="note" style="margin:10px 0 0">빨간 점선 = 같은 구역 도장 전 지적 위치</p>{% endif %}
+  {% if not p.reviewed %}<p class="note" style="margin:10px 0 0">AI가 놓친 곳은 사진 위를 <b>끌어서 박스</b>로 직접 추가하세요 · 추가 <b id="manual-n">0</b>건
+   <button type="button" class="btn mini" onclick="clearManual()">지우기</button></p>{% endif %}</div></div>
+ <div class="panel"><div class="ph"><h2>검사원 판정</h2><span class="note" id="dec-n">{{ '' if p.reviewed else '0 / %d 판정' % cands|length }}</span></div><div class="pb">
+  {% for c in cands %}
+  {#- 후보 확대: 박스 둘레로 박스 크기의 60%만큼 더 보여 준다 (배경 이미지를 잘라 확대) #}
+  {%- set m = [c.x1 - c.x0, c.y1 - c.y0]|max * 0.6 %}
+  {%- set cx0, cy0, cx1, cy1 = [c.x0 - m, 0]|max, [c.y0 - m, 0]|max, [c.x1 + m, 1]|min, [c.y1 + m, 1]|min %}
+  {%- set cw, ch = cx1 - cx0, cy1 - cy0 %}
+  <div class="cc"{% if p.reviewed %} data-d="{{ 'pick' if c.decision == 'accepted' else 'rej' }}"{% endif %}>
+   <div class="crop" style="background-image:url('{{ p.src }}');aspect-ratio:{{ cw * p.w }} / {{ ch * p.h }};background-size:{{ 100 / cw }}% {{ 100 / ch }}%;background-position:{{ cx0 / (1 - cw) * 100 if cw < 1 else 0 }}% {{ cy0 / (1 - ch) * 100 if ch < 1 else 0 }}%">
+    <i style="left:{{ (c.x0 - cx0) / cw * 100 }}%;top:{{ (c.y0 - cy0) / ch * 100 }}%;width:{{ (c.x1 - c.x0) / cw * 100 }}%;height:{{ (c.y1 - c.y0) / ch * 100 }}%"></i></div>
+   <div>
+    <div class="cc-h"><b class="mono">{{ '%02d' % loop.index }}</b> {% if c.source == 'manual' %}검사원 직접 추가{% else %}다시 볼 곳 <span class="note mono">AI 점수 {{ '%.2f' % c.score }}</span>{% endif %}</div>
+    {% if not p.reviewed %}
+    <input type="hidden" name="rc" value="{{ c.id }}"><input type="hidden" name="reason" value=""><input type="checkbox" name="pick" value="{{ c.id }}" hidden>
+    <div class="dec"><button type="button" class="btn d-pick">지적</button><button type="button" class="btn d-rej">반려</button></div>
+    <div class="chips">{% for r in REASONS %}<button type="button" class="chip" data-r="{{ r }}">{{ r }}</button>{% endfor %}</div>
+    {% elif c.decision == 'accepted' %}<span class="tag c-punch">{{ '직접 추가 · 지적' if c.source == 'manual' else '지적' }}</span>
+    {% elif c.decision == 'rejected' %}<span class="tag c-mute">반려 · {{ c.reason }}</span>{% endif %}
+   </div>
+  </div>
+  {%- else %}<p class="note">AI 후보가 없습니다. 놓친 곳이 있으면 사진 위를 끌어 박스로 추가하세요.</p>{% endfor %}
+  {% if not p.reviewed %}
+  <p class="note" style="margin:14px 0 6px">지적 내용</p>
+  <textarea name="note" rows="2" placeholder="예: 잔류 녹 · 재블라스팅 필요"></textarea>
+  <button class="btn pri" id="go" style="width:100%;margin-top:10px"{{ ' disabled' if cands }}>검사원 판정 확정</button>
+  <p class="note">후보마다 지적 또는 반려(이유까지)를 골라야 확정됩니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>
+  {% else %}<p class="note">이미 판정한 사진입니다. <a href="/zones/{{ p.zone_id }}">구역 이력 보기 →</a></p>{% endif %}
+ </div></div>
+</form>
+{% if not p.reviewed %}<script>
+// 후보마다 지적/반려를 고른다. 지적 = pick 체크, 반려 = 이유 칩까지 골라야 판정으로 센다. 미리 골라 두지 않는다(라벨이 AI를 따라가지 않게)
+(() => {
+  const cards = [...document.querySelectorAll('.cc')], rects = [...document.querySelectorAll('.draw .photo svg rect.box')];
+  const decided = c => c.dataset.d === 'pick' || (c.dataset.d === 'rej' && c.querySelector('[name=reason]').value);
+  const count = () => {
+    const n = cards.filter(decided).length;
+    document.getElementById('dec-n').textContent = n + ' / ' + cards.length + ' 판정';
+    document.getElementById('go').disabled = n < cards.length;
+  };
+  cards.forEach((card, i) => {
+    const pick = card.querySelector('[name=pick]'), why = card.querySelector('[name=reason]'), chips = [...card.querySelectorAll('.chip')];
+    const set = d => {
+      card.dataset.d = d; pick.checked = d === 'pick';
+      if (d === 'pick') { why.value = ''; chips.forEach(b => b.classList.remove('on')); }
+      if (rects[i]) { rects[i].classList.toggle('pick', d === 'pick'); rects[i].classList.toggle('rej', d === 'rej'); }
+      count();
+    };
+    card.querySelector('.d-pick').onclick = () => set('pick');
+    card.querySelector('.d-rej').onclick = () => set('rej');
+    chips.forEach(b => b.onclick = () => { why.value = b.dataset.r; chips.forEach(x => x.classList.toggle('on', x === b)); set('rej'); });
+    card.onmouseenter = () => rects[i] && rects[i].classList.add('hot');
+    card.onmouseleave = () => rects[i] && rects[i].classList.remove('hot');
+  });
+  count();
+})();
+// AI가 놓친 곳: 사진 위를 끌면 박스(0~1 비율)가 hidden 입력 manual="x0,y0,x1,y1" 로 폼에 붙는다
+(() => {
+  const ph = document.querySelector('.draw .photo'), svg = ph.querySelector('svg'), form = document.querySelector('form.cols');
+  const pt = e => { const r = ph.getBoundingClientRect();
+    return [Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1), Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1)]; };
+  let start = null, rect = null, n = 0;
+  const box = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+  ph.addEventListener('pointerdown', e => {
+    e.preventDefault(); start = pt(e); ph.setPointerCapture(e.pointerId);
+    rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); rect.setAttribute('class', 'box red manual'); svg.appendChild(rect);
+  });
+  ph.addEventListener('pointermove', e => {
+    if (!start) return;
+    const [x0, y0, x1, y1] = box(start, pt(e));
+    rect.setAttribute('x', x0); rect.setAttribute('y', y0); rect.setAttribute('width', x1 - x0); rect.setAttribute('height', y1 - y0);
+  });
+  ph.addEventListener('pointerup', e => {
+    if (!start) return;
+    const [x0, y0, x1, y1] = box(start, pt(e)); start = null;
+    if (x1 - x0 < 0.01 || y1 - y0 < 0.01) { rect.remove(); return; }  // 너무 작으면 실수로 누른 것
+    const inp = Object.assign(document.createElement('input'), {type: 'hidden', name: 'manual', className: 'manual',
+      value: [x0, y0, x1, y1].map(v => v.toFixed(4)).join(',')});
+    form.appendChild(inp);
+    const tag = Object.assign(document.createElement('span'), {className: 'num red manual', textContent: '직접 ' + (++n)});
+    Object.assign(tag.style, {left: x0 * 100 + '%', top: y0 * 100 + '%'}); ph.appendChild(tag);
+    document.getElementById('manual-n').textContent = n;
+  });
+  window.clearManual = () => { document.querySelectorAll('.manual').forEach(el => el.remove()); n = 0; document.getElementById('manual-n').textContent = 0; };
+})();
+</script>{% endif %}
+{% endblock %}

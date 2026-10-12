@@ -1,0 +1,17 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>BLK {{ bid }}</b> / {{ SURFACES[s][0] }} / 검사 현황{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>검사 현황 · BLK {{ bid }} <span class="sub" style="font-size:18px">{{ BLOCKS[bid] }} 선저 · {{ SURFACES[s][0] }}</span></h1><p>단면에서 면을 고르고, 평면도의 칸을 누르면 구역 이력을 봅니다. 폰에서 올린 내용이 바로 반영됩니다.</p></div>
+ <div class="legend">{% for st, n in counts.items() if n %}<span class="tag c-{{ STATUS[st] }}">{{ st }} {{ n }}</span>{% endfor %}</div>
+</div>
+<div class="panel"><div class="ph"><h2>면 고르기 · 중앙 횡단면</h2><span class="note">블록이 뒤집혀 있어도 배 기준 이름으로 고릅니다</span></div>
+ <div class="pb">{{ ui.section(bid, '/blocks/' ~ bid, s, surf_n) }}</div></div>
+<div class="panel"><div class="ph"><h2>BLK {{ bid }} · {{ SURFACES[s][0] }} · 검사 구역</h2><span class="note">{{ 'Z-07 외 구역 상태는 예시' if zones|selectattr('mock')|list else '아직 기록 없는 면' }}</span></div>
+  <div class="pb">{{ ui.plan(zones) }}</div>
+</div>
+<div class="panel"><div class="ph"><h2>최근 기록</h2>{% if events|selectattr('mock')|list %}<span class="note">흐린 줄 = 미리 넣은 예시 기록</span>{% endif %}</div><div class="pb">
+  {% for e in events %}<div class="row{{ ' mock' if e.mock }}"><span><b class="mono">{{ e.zone_id }}</b> {{ e.text }}</span><span class="note mono">{{ e.ts }}</span></div>
+  {% else %}<p class="note">기록 없음</p>{% endfor %}
+ </div></div>
+{% endblock %}

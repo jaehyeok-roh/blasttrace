@@ -1,0 +1,15 @@
+{% import '_ui.html' as ui %}<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlastTrace 현장 촬영</title>
+<link rel="stylesheet" href="/static/style.css?v={{ CSS_V() }}">
+</head>
+<body>
+<div class="m">
+ <div class="mtop"><a class="logo" style="margin:0;font-size:20px" href="/m">BlastTrace<i>.</i></a><span class="note">현장 촬영</span></div>
+ {% block body %}{% endblock %}
+</div>
+{% block poll %}{{ ui.poll() }}{% endblock %}
+</body>
+</html>
