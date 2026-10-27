@@ -100,7 +100,8 @@ SHIP_COLS = [f"{n:02d}" for n in range(7, 17)]
 tpl.env.globals.update(STATUS=STATUS, FINDING=FINDING, LOC=zone_loc, BLK=zone_block, CELL=zone_cell, COLS=COLS, ROWS=ROWS,
                        FR0=FR0, L0=L0, WL=WAVELENGTHS, SHIP=SHIP, BLOCKS=BLOCKS, SHIP_COLS=SHIP_COLS, SURFACES=SURFACES,
                        # 폰 브라우저가 옛 CSS를 붙잡고 있지 않도록 수정 시각을 주소에 붙인다
-                       CSS_V=lambda: int((WEB / "static" / "style.css").stat().st_mtime))
+                       CSS_V=lambda: int((WEB / "static" / "style.css").stat().st_mtime),
+                       JS_V=lambda: int((WEB / "static" / "ship3d.js").stat().st_mtime))
 
 
 # 노트북 사용자 = 지적·종결을 승인하는 검사원. Hold Point 해제 기록에 이 이름이 남는다

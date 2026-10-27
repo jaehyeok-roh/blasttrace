@@ -1,0 +1,184 @@
+// 홈 3D 선박: LNG 운반선(멤브레인형, 길이 약 305 m · 폭 45 m)을 단순한 형상으로 그린다.
+// 반투명 선체 안에 화물창 4개와 선저 블록(이중저)이 보이고, 데이터가 있는 블록(파란색)을 누르면 블록 화면으로 간다.
+// 팀 3D 모델(Sketchfab LNG Ship → GLB)이 준비되면 hull() 대신 GLTFLoader로 불러오면 된다. 블록·화물창 배치는 그대로 쓴다.
+// 단위 m. x = 선미→선수, y = 위, z = 우현(+) / 좌현(-). 배치는 2D 블록 분할도(_ui.html ship)와 같은 비율이다.
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const L = 305, B = 45, D = 27, TD = 31, DB = 3;           // 길이, 폭, 갑판, 트렁크 갑판, 이중저 높이
+const BX0 = 54, BL = 21.3;                                 // 블록 07의 선미 끝, 블록 길이 (07~16)
+const TANKS = [[56, 117, 'No.4'], [119, 181, 'No.3'], [183, 245, 'No.2'], [247, 273, 'No.1']];
+const INK = 0x2B2F3A, BLUE = 0x1F4FFF;
+
+const smooth = t => t * t * (3 - 2 * t);
+// 갑판 높이에서의 반폭: 선미는 조금 좁고, 선수는 끝으로 갈수록 0
+function hb(x) {
+  if (x < 45) return B / 2 * (0.78 + 0.22 * smooth(x / 45));
+  if (x < 235) return B / 2;
+  return B / 2 * Math.pow(Math.cos(Math.min(1, (x - 235) / 70) * Math.PI / 2), 0.75);
+}
+// 선저(용골) 높이: 선미는 프로펠러 위로 올라가고, 선수 끝도 조금 들린다
+function kz(x) {
+  if (x < 40) return 9 * Math.pow(1 - x / 40, 2);
+  if (x > 270) return 6 * Math.pow((x - 270) / 35, 2);
+  return 0;
+}
+// 횡단면 둘레: 좌현 갑판 → 좌현 선측 → 빌지 → 선저 → 우현 → 우현 갑판. 점 수는 항상 같다 (z, y)
+function section(x) {
+  const h = Math.max(hb(x), 0.01), k = kz(x), r = Math.max(0.01, Math.min(4, h * 0.5, (D - k) * 0.5)), pts = [[-h, D], [-h, k + r]];
+  for (let i = 1; i < 6; i++) { const a = Math.PI + Math.PI / 2 * i / 6; pts.push([-h + r + r * Math.cos(a), k + r + r * Math.sin(a)]); }
+  pts.push([-h + r, k], [h - r, k]);
+  for (let i = 1; i < 6; i++) { const a = 1.5 * Math.PI + Math.PI / 2 * i / 6; pts.push([h - r + r * Math.cos(a), k + r + r * Math.sin(a)]); }
+  pts.push([h, k + r], [h, D]);
+  return pts;
+}
+
+function hull() {
+  const g = new THREE.Group(), xs = [];
+  for (let x = 0; x <= L; x += 2.5) xs.push(x);
+  const n = section(0).length, pos = [], idx = [];
+  xs.forEach(x => section(x).forEach(([z, y]) => pos.push(x, y, z)));
+  for (let i = 0; i < xs.length - 1; i++) for (let j = 0; j < n - 1; j++) {
+    const a = i * n + j, b = a + n;
+    idx.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  const skin = new THREE.MeshStandardMaterial({ color: 0xDCE3EF, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false });
+  g.add(new THREE.Mesh(geo, skin));
+  // 선미 트랜섬과 갑판
+  const tr = new THREE.ShapeGeometry(new THREE.Shape(section(0).map(([z, y]) => new THREE.Vector2(z, y))));
+  tr.rotateY(-Math.PI / 2); g.add(new THREE.Mesh(tr, skin));
+  const dp = [], di = [];
+  xs.forEach(x => dp.push(x, D, -hb(x), x, D, hb(x)));
+  for (let i = 0; i < xs.length - 1; i++) di.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
+  const deck = new THREE.BufferGeometry();
+  deck.setAttribute('position', new THREE.Float32BufferAttribute(dp, 3)); deck.setIndex(di); deck.computeVertexNormals();
+  g.add(new THREE.Mesh(deck, new THREE.MeshStandardMaterial({ color: 0xE6EAF2, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false })));
+  // 도면 같은 선: 갑판 가장자리·빌지 선, 블록 경계마다 횡단면 선
+  const line = (pts, color = INK, opacity = 0.9) => g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
+  for (const s of [-1, 1]) {
+    line(xs.map(x => new THREE.Vector3(x, D, s * hb(x))));
+    line(xs.map(x => new THREE.Vector3(x, kz(x), s * Math.max(0, hb(x) - Math.min(4, hb(x) * 0.5)))), INK, 0.5);
+  }
+  for (let i = 0; i <= 10; i++) {
+    const x = BX0 + i * BL;
+    line(section(x).map(([z, y]) => new THREE.Vector3(x, y, z)), INK, 0.35);
+  }
+  line(section(0).concat([section(0)[0]]).map(([z, y]) => new THREE.Vector3(0, y, z)));
+  return g;
+}
+
+function box(x0, x1, y0, y1, z0, z1, mat) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat);
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.45 })));
+  return m;
+}
+
+function label(text, cls, x, y, z) {
+  const el = document.createElement('span');
+  el.className = 'l3d' + (cls ? ' ' + cls : ''); el.textContent = text;
+  const o = new CSS2DObject(el); o.position.set(x, y, z); return o;
+}
+
+export function mount(el) {
+  const href = el.dataset.href, blocks = JSON.parse(el.dataset.blocks), cols = JSON.parse(el.dataset.cols);
+  const scene = new THREE.Scene();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setClearColor(0xF7F8FB);
+  const labels = new CSS2DRenderer();
+  Object.assign(labels.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+  el.append(renderer.domElement, labels.domElement);
+  const camera = new THREE.PerspectiveCamera(35, 1, 1, 3000);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.minDistance = 60; controls.maxDistance = 900; controls.maxPolarAngle = Math.PI - 0.05;
+  scene.add(new THREE.HemisphereLight(0xFFFFFF, 0x8A96AA, 1.2));
+  const sun = new THREE.DirectionalLight(0xFFFFFF, 0.9); sun.position.set(120, 260, -140); scene.add(sun);
+
+  scene.add(hull());
+  // 화물창(멤브레인, 팔각형 단면)과 트렁크 갑판 위 돔
+  const w = B / 2 - 3, oct = [[-(w - 4), DB], [w - 4, DB], [w, DB + 4], [w, D - 5], [w - 8, TD - 1], [-(w - 8), TD - 1], [-w, D - 5], [-w, DB + 4]];
+  const tankMat = new THREE.MeshStandardMaterial({ color: 0xBFCBE6, transparent: true, opacity: 0.28, depthWrite: false });
+  const solid = new THREE.MeshStandardMaterial({ color: 0xDFE3EA });
+  TANKS.forEach(([x0, x1, name]) => {
+    const geo = new THREE.ExtrudeGeometry(new THREE.Shape(oct.map(([z, y]) => new THREE.Vector2(z, y))), { depth: x1 - x0, bevelEnabled: false });
+    geo.rotateY(-Math.PI / 2); geo.translate(x1, 0, 0);
+    const t = new THREE.Mesh(geo, tankMat);
+    t.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x5B6B8C, transparent: true, opacity: 0.6 })));
+    scene.add(t);
+    const c = (x0 + x1) / 2;
+    for (const [dx, r] of [[-5, 1.8], [4, 1.3]]) {
+      const dome = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 3, 20), solid); dome.position.set(c + dx, TD + 1.5, 0); scene.add(dome);
+    }
+    scene.add(label(name + ' 화물창', '', c, TD + 8, 0));
+  });
+  scene.add(box(56, 273, D, TD, -(w - 6), w - 6, new THREE.MeshStandardMaterial({ color: 0xE9ECF2, transparent: true, opacity: 0.55 })));
+  // 선미 거주구·조타실·굴뚝, 압축기실
+  scene.add(box(12, 30, D, D + 18, -14, 14, solid), box(20, 31, D + 18, D + 22, -21, 21, solid), box(3, 11, D, D + 26, -4, 4, solid));
+  scene.add(box(62, 74, TD, TD + 5, -6, 6, solid));
+  // 선저 블록(이중저): 블록 07~16 x 좌현/우현. 데이터가 있는 블록만 누를 수 있다
+  const hits = [];
+  cols.forEach((c, i) => {
+    const x0 = BX0 + i * BL, x1 = x0 + BL, half = Math.min(B / 2 - 0.5, hb((x0 + x1) / 2) - 2);
+    for (const side of ['P', 'S']) {
+      const name = 'B' + c + side, on = name in blocks, s = side === 'P' ? -1 : 1;
+      const m = box(x0 + 0.3, x1 - 0.3, kz(x0) + 0.2, kz(x0) + DB, side === 'P' ? -half : 0.3, side === 'P' ? -0.3 : half,
+        new THREE.MeshStandardMaterial({ color: on ? BLUE : 0xC9CBD3, transparent: true, opacity: on ? 0.92 : 0.4, emissive: 0x000000 }));
+      m.userData = on ? { name, title: `BLK ${name} · ${blocks[name]} 선저 · 평면도 열기`, href: href + name } : { name, title: `BLK ${name} · 예시 블록 (데이터 없음)` };
+      scene.add(m); hits.push(m);
+      if (on) scene.add(label(`${name} ${blocks[name]}`, 'on', (x0 + x1) / 2, -4, s * (B / 2 + 6)));
+    }
+  });
+  scene.add(label('선수 FWD →', '', L + 14, D, 0), label('선미', '', -12, D, 0));
+  const grid = new THREE.GridHelper(700, 35, 0xD5DAE5, 0xE6E9F0); grid.position.set(150, -12, 0); scene.add(grid);
+
+  // 시점: 2D 도면처럼 우현에서 본다(선수가 오른쪽). 기본(위에서 비스듬히) / 측면 / 아래에서(선저 블록이 잘 보임)
+  const views = { iso: [[110, 112, 235], [152, 14, 0]], side: [[152, 24, 380], [152, 12, 0]], below: [[120, -150, 190], [160, 2, 0]] };
+  // 화면이 좁으면(폰) 배 전체가 들어오도록 카메라를 뒤로 물린다
+  const setView = v => {
+    const [p, t] = views[v], k = Math.max(1, 2.1 / camera.aspect);
+    camera.position.set(...p.map((c, i) => t[i] + (c - t[i]) * k)); controls.target.set(...t); controls.update();
+  };
+  el.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+
+  const resize = () => {
+    const { width, height } = el.getBoundingClientRect();
+    renderer.setSize(width, height); labels.setSize(width, height);
+    camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix();
+  };
+  new ResizeObserver(resize).observe(el); resize(); setView('iso');
+
+  // 가리키면 이름, 누르면(끌지 않았을 때만) 이동
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), tip = el.querySelector('.s3-tip');
+  let hover = null, down = null;
+  const pick = e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    return (ray.intersectObjects(hits, false)[0] || {}).object || null;
+  };
+  renderer.domElement.addEventListener('pointermove', e => {
+    const o = pick(e);
+    if (hover !== o) {
+      if (hover) hover.material.emissive.setHex(0x000000);
+      hover = o;
+      if (o) o.material.emissive.setHex(o.userData.href ? 0x1030AA : 0x222222);
+    }
+    renderer.domElement.style.cursor = o && o.userData.href ? 'pointer' : '';
+    tip.hidden = !o;
+    if (o) { const r = el.getBoundingClientRect(); tip.textContent = o.userData.title; tip.style.left = e.clientX - r.left + 12 + 'px'; tip.style.top = e.clientY - r.top + 12 + 'px'; }
+  });
+  renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+    const o = pick(e);
+    if (o && o.userData.href) location.href = o.userData.href;
+  });
+
+  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); labels.render(scene, camera); });
+  el.dataset.ready = '1';
+  el.querySelector('.s3-msg').remove();
+}

@@ -191,6 +191,18 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .dwg.ship.compact text:not(.on):not(.bs),.dwg.ship.compact .fwd{display:none}
 .dwg.ship.compact .bl.on{font-size:24px}
 .dwg.ship.compact .bs{font-size:19px}
+/* 홈 3D 선박 */
+.s3{position:relative;height:460px;border-radius:10px;background:#F7F8FB;overflow:hidden}
+.s3.compact{height:300px}
+.s3 canvas{display:block;width:100%;height:100%;touch-action:none}
+.s3-msg{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--sub);font-size:13px}
+.s3-tip{position:absolute;z-index:2;pointer-events:none;background:rgba(17,17,17,.85);color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;white-space:nowrap}
+.s3-views{position:absolute;z-index:2;right:10px;top:10px;display:flex;gap:6px}
+.s3-views button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;font:600 12px Pretendard,'맑은 고딕',sans-serif;color:var(--ink);cursor:pointer}
+.s3-views button:hover{border-color:var(--blue);color:var(--blue)}
+.l3d{font:600 12px Pretendard,'맑은 고딕',sans-serif;color:var(--sub);background:rgba(255,255,255,.85);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.l3d.on{color:#fff;background:var(--blue)}
+.s3.compact .l3d{font-size:10px}
 /* 면 고르기 (중앙 횡단면): 지금 블록 쪽 네 면만 누를 수 있다 */
 .secwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .sec{max-width:430px;justify-self:center}

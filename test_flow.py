@@ -32,6 +32,7 @@ for url in ["/", "/blocks/B12P", "/blocks/B12S", "/m", "/m/blocks/B12P", "/m/blo
     assert c.get(url).status_code == 200, url
 # 홈 = 블록 분할도. 데이터가 있는 B12 좌현(P)·우현(S)만 평면도로 들어가고, 나머지 블록은 예시라 404
 home, mhome = c.get("/").text, c.get("/m").text
+assert 'class="s3"' in home and "/static/ship3d.js" in home and 'class="s3 compact"' in mhome  # 3D 선박
 assert all(f'href="/blocks/{b}"' in home and f'href="/m/blocks/{b}"' in mhome for b in ("B12P", "B12S"))
 assert c.get("/blocks/B13P").status_code == 404 and c.get("/blocks/B12").status_code == 404
 assert 'href="/zones/Z-31"' in c.get("/blocks/B12S").text and 'href="/zones/Z-07"' not in c.get("/blocks/B12S").text

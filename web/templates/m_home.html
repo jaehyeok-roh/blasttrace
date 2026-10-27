@@ -2,6 +2,8 @@
 {% block body %}
 <h1>블록 선택</h1>
 <p class="note" style="margin:0 0 10px">호선 {{ SHIP }} · 위 = 측면, 아래 = 선저 평면 (위쪽이 좌현). 파란 블록을 누르세요.</p>
+{{ ui.ship3d('/m/blocks/', compact=True) }}
+<p class="note" style="margin:12px 0 6px">도면으로 보기</p>
 {{ ui.ship('/m/blocks/', compact=True) }}
 {% for b in blocks %}<a class="btn pri big" style="margin-top:12px" href="/m/blocks/{{ b.id }}">BLK {{ b.id }} · {{ b.side }} 평면도</a>{% endfor %}
 {% endblock %}

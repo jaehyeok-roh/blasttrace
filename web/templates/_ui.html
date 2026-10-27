@@ -130,6 +130,18 @@
 </svg>
 {% endmacro %}
 
+{# 홈 3D 선박 (web/static/ship3d.js). 돌리고 확대하다가 파란 블록을 누르면 href + 블록 이름으로 간다.
+   Three.js는 CDN에서 받아서 인터넷이 없으면 8초 뒤 안내가 뜬다(아래 2D 블록 분할도로 고르면 된다) #}
+{% macro ship3d(href, compact=False) %}
+<div class="s3{{ ' compact' if compact }}" data-href="{{ href }}" data-blocks='{{ BLOCKS|tojson }}' data-cols='{{ SHIP_COLS|tojson }}'>
+ <div class="s3-msg">3D 불러오는 중…</div><div class="s3-tip" hidden></div>
+ <div class="s3-views"><button type="button" data-view="iso">기본</button><button type="button" data-view="side">측면</button><button type="button" data-view="below">아래에서</button></div>
+</div>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">import { mount } from '/static/ship3d.js?v={{ JS_V() }}'; document.querySelectorAll('.s3').forEach(mount);</script>
+<script>setTimeout(() => document.querySelectorAll('.s3:not([data-ready]) .s3-msg').forEach(m => m.textContent = '3D를 불러오지 못했습니다 (인터넷 연결 필요). 아래 도면에서 블록을 고르세요.'), 8000)</script>
+{% endmacro %}
+
 {# 면 고르기: LNG 운반선 중앙 횡단면 (앞을 볼 때 왼쪽 = 좌현). 팔각형 = 멤브레인 화물창(가운데 종격벽 없음),
    그 바깥 = 밸러스트 탱크(이중저 · 하부 호퍼 · 이중선체 · 상부 날개)와 트렁크 갑판.
    블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 고른다.
