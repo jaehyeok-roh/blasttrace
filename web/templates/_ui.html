@@ -45,22 +45,23 @@
 <ol class="steps">{% for t, d in items %}<li class="{{ 'on' if loop.index == cur else ('done' if loop.index < cur else '') }}"><b>{{ loop.index }}</b><span>{{ t }}<small>{{ d }}</small></span></li>{% endfor %}</ol>
 {% endmacro %}
 
-{# 블록 분할도 시안 v2: 유조선 일반배치(GA) 느낌. 위 = 측면(우현에서 본 모습), 아래 = 선저 평면(위에서 본 모습, 위쪽이 좌현).
-   화물창 No.5~No.1(탱크 하나 = 블록 2개), 기관실·펌프실·선수미 탱크, 이중저(선저 블록 띠). 선저 블록 B07~B16을 P/S로 나눈다. #}
+{# 블록 분할도: LNG 운반선(멤브레인형, 길이 약 305 m · 폭 45 m, 3D 모델과 같은 급) 일반배치(GA) 느낌.
+   위 = 측면(우현에서 본 모습), 아래 = 선저 평면(위에서 본 모습, 위쪽이 좌현).
+   화물창 No.4~No.1(탱크 사이 코퍼댐, 탱크 하나 = 블록 3개), 트렁크 갑판 위 돔·화물 압축기실, 기관실·선수미 탱크, 이중저(선저 블록 띠).
+   멤브레인 화물창은 폭 전체를 쓰므로 가운데 종격벽이 없다. 선저 블록 B07~B16을 P/S로 나눈다. #}
 {% macro ship(href, compact=False) %}
 {% set CX, BW = 230, 60 %}
 {% set HULL = 'M52,168 L56,194 C62,204 76,210 92,212 L106,212 L112,236 C114,246 122,250 136,250 L842,250 C866,250 884,248 896,242 C910,236 922,228 922,218 C922,209 914,204 906,203 C902,202 900,199 902,195 L946,148 L872,148 L872,168 Z' %}
 {% set PLAN = 'M52,352 C60,334 92,326 140,324 L820,324 C880,324 928,352 950,400 C928,448 880,476 820,476 L140,476 C92,474 60,466 52,448 Z' %}
-{% set TANKS = [(230, 260, 'SLOP'), (260, 350, 'No.5 C.O.T'), (350, 470, 'No.4 C.O.T'), (470, 590, 'No.3 C.O.T'),
-                (590, 710, 'No.2 C.O.T'), (710, 830, 'No.1 C.O.T')] %}
-{% set BHD = [120, 210, 230, 260, 350, 470, 590, 710, 830] %}
+{% set TANKS = [(236, 407, 'No.4 CARGO TANK'), (413, 587, 'No.3 CARGO TANK'), (593, 767, 'No.2 CARGO TANK'), (773, 845, 'No.1 TANK')] %}
+{% set BHD = [120, 230, 236, 407, 413, 587, 593, 767, 773, 845] %}
 {% set hi = CX + SHIP_COLS.index('12') * BW %}
-<svg class="dwg ship{{ ' compact' if compact }}" viewBox="{{ '36 52 936 436' if compact else '0 0 1000 600' }}" role="img" aria-label="호선 {{ SHIP }} 블록 분할도">
+<svg class="dwg ship{{ ' compact' if compact }}" viewBox="{{ '36 52 936 436' if compact else '0 0 1000 600' }}" role="img" aria-label="호선 {{ SHIP }} LNG 운반선 블록 분할도">
  <defs><clipPath id="hullp"><path d="{{ HULL }}"/></clipPath><clipPath id="hullb"><path d="{{ PLAN }}"/></clipPath></defs>
  {%- if not compact %}<rect class="sheet" x="6" y="6" width="988" height="588"/>{% endif %}
  <text class="vt" x="24" y="34">PROFILE · 측면 (우현에서 본 모습)</text>
  <path class="fwd" d="M852,30 h60 m-9,-6 l9,6 l-9,6"/><text class="h2" x="844" y="34" text-anchor="end">FWD</text>
- {#- 선체 안: B12 열 강조, 이중저 띠(선저 블록), 블록 이음, 횡격벽, 주기관·축계 #}
+ {#- 선체 안: B12 열 강조, 이중저 띠(선저 블록), 블록 이음, 횡격벽·코퍼댐, 주기관·축계 #}
  <g clip-path="url(#hullp)">
   <rect class="hl" x="{{ hi }}" y="168" width="{{ BW }}" height="68"/>
   <rect class="db" x="{{ CX }}" y="236" width="{{ 10 * BW }}" height="14"/><rect class="hb" x="{{ hi }}" y="236" width="{{ BW }}" height="14"/>
@@ -79,18 +80,20 @@
   <path d="M122,168 V120 H180 V168"/><path class="thin" d="M122,156 H180 M122,144 H180 M122,132 H180"/>
   <path d="M114,120 V106 H188 V120 Z"/><path class="win" d="M118,112 H184"/>
   <path d="M142,106 L146,84 H156 L160,106 M138,84 H164 M151,84 V78 M136,78 H166 M161,78 V64"/>
-  {#- 갑판: 배관대, 매니폴드·호스 크레인, 계류 윈치, 양묘기, 선수 마스트 #}
-  <path class="thin" d="M190,162 H866{% for x in range(204, 866, 34) %} M{{ x }},162 V168{% endfor %}"/>
-  <path d="M496,168 V156 H514 V168 M522,168 V128 M522,132 L486,142 M488,142 V150"/>
+  {#- 트렁크 갑판(화물창 위로 올라온 갑판) · 탱크마다 액체 돔·가스 돔 · 화물 압축기실 · 매니폴드와 호스 크레인 #}
+  <path d="M236,168 V156 H845 V168"/>
+  {%- for x0, x1, t in TANKS %}{% set cx = (x0 + x1) / 2 %}<path d="M{{ cx - 16 }},156 V146 H{{ cx - 6 }} V156 M{{ cx + 4 }},156 V148 H{{ cx + 11 }} V156"/>{% endfor %}
+  <path d="M250,156 V140 H284 V156 M258,140 V134 H266 V140"/>
+  <path d="M478,156 V148 H494 V156 M500,156 V118 M500,122 L466,132 M468,132 V140"/>
   <path d="M60,168 V161 H76 V168 M898,148 V141 H914 V148"/>
   <path d="M884,148 L887,114 H890 L893,148"/><circle cx="888.5" cy="110" r="3"/>
-  <path class="hid" d="M40,196 H960"/><path class="thin" d="M78,254 V270 M902,254 V270"/>
+  <path class="hid" d="M40,200 H960"/><path class="thin" d="M78,254 V270 M902,254 V270"/>
  </g>
- <text x="24" y="200">DLWL</text><text x="24" y="254">BL</text>
- <text class="tk" x="86" y="190" text-anchor="middle">A.P.T</text><text class="tk" x="165" y="190" text-anchor="middle">E/R</text>
- <text class="tk sm" x="168" y="226" text-anchor="middle">M/E</text><text class="tk sm" x="220" y="214" text-anchor="middle">P/R</text>
- {%- for x0, x1, t in TANKS %}<text class="tk{{ ' sm' if x1 - x0 < 60 }}" x="{{ (x0 + x1) / 2 }}" y="214" text-anchor="middle">{{ t }}</text>{% endfor %}
- <text class="tk" x="864" y="214" text-anchor="middle">F.P.T</text>
+ <text x="24" y="204">DLWL</text><text x="24" y="254">BL</text>
+ <text class="tk" x="86" y="190" text-anchor="middle">A.P.T</text><text class="tk" x="175" y="190" text-anchor="middle">E/R</text>
+ <text class="tk sm" x="168" y="226" text-anchor="middle">M/E</text>
+ {%- for x0, x1, t in TANKS %}<text class="tk{{ ' sm' if x1 - x0 < 100 }}" x="{{ (x0 + x1) / 2 }}" y="214" text-anchor="middle">{{ t }}</text>{% endfor %}
+ <text class="tk" x="874" y="214" text-anchor="middle">F.P.T</text>
  <text x="{{ CX - 8 }}" y="266" text-anchor="end">BLK</text>
  {%- for c in SHIP_COLS %}<text class="{{ 'bn on' if c == '12' else 'bn' }}" x="{{ CX + (loop.index0 + 0.5) * BW }}" y="266" text-anchor="middle">{{ c }}</text>{% endfor %}
  <text x="78" y="282" text-anchor="middle">A.P</text><text x="902" y="282" text-anchor="middle">F.P</text>
@@ -102,11 +105,11 @@
   {%- if b in BLOCKS %}<a href="{{ href }}{{ b }}"><rect class="blk on" x="{{ x }}" y="{{ y }}" width="{{ BW }}" height="80"/><title>BLK {{ b }} · {{ BLOCKS[b] }} 선저 · 평면도 열기</title></a>
   {%- else %}<rect class="blk" x="{{ x }}" y="{{ y }}" width="{{ BW }}" height="80"><title>BLK {{ b }} · 예시 블록 (데이터 없음)</title></rect>{% endif %}
  {%- endfor %}{% endfor %}
-  <g class="lw"><path class="bh" d="{% for x in BHD %}M{{ x }},300 V500 {% endfor %}M{{ CX }},400 H830"/><path class="thin" d="M{{ CX }},334 H830 M{{ CX }},466 H830"/></g>
+  <g class="lw"><path class="bh" d="{% for x in BHD %}M{{ x }},300 V500 {% endfor %}"/><path class="thin" d="M236,334 H845 M236,466 H845"/></g>
  </g>
  <g class="lw"><path class="pl" d="{{ PLAN }}"/><path class="cl" d="M36,400 H968"/></g>
  <text x="24" y="404">CL</text>
- <text class="tk" x="165" y="388" text-anchor="middle">E/R</text><text class="tk" x="868" y="388" text-anchor="middle">F.P.T</text>
+ <text class="tk" x="175" y="388" text-anchor="middle">E/R</text><text class="tk" x="882" y="388" text-anchor="middle">F.P.T</text>
  {%- for side in ['P', 'S'] %}{% set y = 362 if side == 'P' else 438 %}{% for c in SHIP_COLS %}{% set b = 'B' ~ c ~ side %}{% set x = CX + (loop.index0 + 0.5) * BW %}
   {%- if b in BLOCKS %}<text class="bl on" x="{{ x }}" y="{{ y - 4 }}" text-anchor="middle">{{ b }}</text><text class="bs" x="{{ x }}" y="{{ y + 16 }}" text-anchor="middle">{{ BLOCKS[b] }}</text>
   {%- else %}<text class="bl" x="{{ x }}" y="{{ y + 4 }}" text-anchor="middle">{{ b }}</text>{% endif %}
@@ -115,34 +118,37 @@
  <rect class="blk on" x="24" y="516" width="32" height="16"/><text class="h2" x="64" y="528">검사 데이터 있는 블록</text>
  <rect class="blk" x="24" y="540" width="32" height="16"/><text class="h2" x="64" y="552">예시 블록 (데이터 없음)</text>
  <g class="lw"><path class="bh" d="M236,524 H268"/><path class="hid" d="M236,548 H268"/><path class="cl" d="M436,524 H468"/></g>
- <text class="h2" x="276" y="528">횡격벽 · 종격벽</text><text class="h2" x="276" y="552">흘수선 · 축계 (숨은선)</text>
+ <text class="h2" x="276" y="528">횡격벽 · 코퍼댐</text><text class="h2" x="276" y="552">흘수선 · 축계 (숨은선)</text>
  <rect class="db" x="436" y="540" width="32" height="16"/>
  <text class="h2" x="476" y="528">CL 중심선</text><text class="h2" x="476" y="552">이중저 (선저 블록)</text>
  <g class="tb"><rect x="606" y="522" width="388" height="72"/><path d="M606,540 H994 M606,558 H994 M606,576 H994 M726,522 V594 M880,558 V594"/></g>
  <text class="tb-b" x="616" y="535">BLASTTRACE</text><text x="736" y="535">시연용 예시 · 실제 도면 아님</text>
- <text x="616" y="553">SHIP {{ SHIP }}</text><text x="736" y="553">블록 분할도 (BLOCK DIVISION)</text>
- <text x="616" y="571">SCALE NTS</text><text x="736" y="571">DWG BT-{{ SHIP }}-BD-01</text><text x="890" y="571">REV. C</text>
+ <text x="616" y="553">SHIP {{ SHIP }}</text><text x="736" y="553">LNG 운반선 · 블록 분할도</text>
+ <text x="616" y="571">SCALE NTS</text><text x="736" y="571">DWG BT-{{ SHIP }}-BD-01</text><text x="890" y="571">REV. D</text>
  <text x="616" y="589">DRAWN</text><text x="736" y="589">CHECKED</text><text x="890" y="589">APPROVED</text>
  {%- endif %}
 </svg>
 {% endmacro %}
 
-{# 면 고르기: 중앙 횡단면 (앞을 볼 때 왼쪽 = 좌현). 블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 고른다.
+{# 면 고르기: LNG 운반선 중앙 횡단면 (앞을 볼 때 왼쪽 = 좌현). 팔각형 = 멤브레인 화물창(가운데 종격벽 없음),
+   그 바깥 = 밸러스트 탱크(이중저 · 하부 호퍼 · 이중선체 · 상부 날개)와 트렁크 갑판.
+   블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 고른다.
    지금 블록 쪽의 네 면(SURFACES, 구역 ID 첫 글자)을 누를 수 있다. base = 블록 화면 주소, cur = 지금 면, counts = 면별 기록 있는 구역 수 #}
 {% macro section(bid, base, cur, counts={}) %}
 {% set mx, sg = (480, -1) if bid.endswith('S') else (0, 1) %}
 {% set other = bid[:-1] ~ ('P' if bid.endswith('S') else 'S') %}
-{% set REG = 'M240,250 L115,250 L90,225 L60,225 L60,255 Q60,280 85,280 L240,280 Z' %}
-{% set LINES = {'Z': 'M115,250 H240', 'H': 'M90,225 L115,250', 'O': 'M85,280 H240'} %}
-{% set MARK = {'Z': (178, 236), 'H': (122, 226), 'D': (172, 265), 'O': (178, 296)} %}
+{% set REG = 'M240,245 L125,245 L95,215 L60,215 L60,255 Q60,280 85,280 L240,280 Z' %}
+{% set LINES = {'H': 'M95,215 L125,245', 'D': 'M125,245 H240', 'O': 'M85,280 H240'} %}
+{% set MARK = {'Z': (172, 265), 'H': (124, 222), 'D': (180, 233), 'O': (178, 296)} %}
 <div class="secwrap">
-<svg class="dwg sec" viewBox="36 26 408 290" role="img" aria-label="중앙 횡단면에서 BLK {{ bid }}의 면 고르기">
+<svg class="dwg sec" viewBox="36 26 408 290" role="img" aria-label="LNG 운반선 중앙 횡단면에서 BLK {{ bid }}의 면 고르기">
  <path class="other" d="{{ REG }}" transform="translate({{ 480 - mx }},0) scale({{ -sg }},1)"/>
- <a href="{{ base }}?s=D" transform="translate({{ mx }},0) scale({{ sg }},1)"><path class="sfa{{ ' on' if cur == 'D' }}" d="{{ REG }}"/><title>{{ SURFACES['D'][0] }}</title></a>
+ <a href="{{ base }}?s=Z" transform="translate({{ mx }},0) scale({{ sg }},1)"><path class="sfa{{ ' on' if cur == 'Z' }}" d="{{ REG }}"/><title>{{ SURFACES['Z'][0] }}</title></a>
  <g class="lw">
-  <path class="pl" d="M60,60 V255 Q60,280 85,280 H395 Q420,280 420,255 V60 M60,60 Q240,52 420,60"/>
-  <path d="M90,60 V225 L115,250 H365 L390,225 V60 M240,58 V250"/>
-  <path class="hid" d="M150,250 V280 M195,250 V280 M285,250 V280 M330,250 V280"/>
+  <path class="pl" d="M60,58 V255 Q60,280 85,280 H395 Q420,280 420,255 V58 M60,58 H118 L128,44 H352 L362,58 H420"/>
+  <path d="M95,215 V112 L130,78 H350 L385,112 V215 L355,245 H125 Z"/>
+  <path class="hid" d="M150,245 V280 M195,245 V280 M285,245 V280 M330,245 V280"/>
+  <path class="cl" d="M240,36 V292"/>
  </g>
  <g transform="translate({{ mx }},0) scale({{ sg }},1)">
  {%- for k, d in LINES.items() %}<a href="{{ base }}?s={{ k }}"><path class="hit" d="{{ d }}"/><path class="sf{{ ' on' if cur == k }}" d="{{ d }}"/><title>{{ SURFACES[k][0] }}</title></a>{% endfor %}
@@ -151,7 +157,8 @@
  <a href="{{ base }}?s={{ k }}"><g class="mk{{ ' on' if cur == k }}"><circle cx="{{ mx + sg * x }}" cy="{{ y }}" r="9"/><text x="{{ mx + sg * x }}" y="{{ y }}" text-anchor="middle" dominant-baseline="central">{{ loop.index }}</text></g></a>
  {%- endfor %}
  <text class="h2" x="60" y="44">좌현 P</text><text class="h2" x="420" y="44" text-anchor="end">우현 S</text>
- <text class="h2" x="165" y="150" text-anchor="middle">No.3 화물창 (P)</text><text class="h2" x="315" y="150" text-anchor="middle">No.3 화물창 (S)</text>
+ <text class="h2 halo" x="240" y="150" text-anchor="middle">No.3 화물창 (멤브레인)</text>
+ <text class="h2 halo" x="240" y="166" text-anchor="middle">바깥 = 밸러스트 탱크</text>
  <text class="bk on" x="{{ mx + sg * 100 }}" y="306" text-anchor="middle">{{ bid }}</text>
  <a href="{{ base|replace(bid, other) }}"><text class="bk" x="{{ 480 - mx - sg * 100 }}" y="306" text-anchor="middle">{{ other }} →</text></a>
 </svg>
@@ -159,14 +166,14 @@
 </div>
 {% endmacro %}
 
-{# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 점선 = 판 아래 프레임·론지,
-   실선 = 판 외곽·이음, 타원 = 맨홀. 누르면 href + 구역 ID 로 간다. compact = 폰용 (도면 틀·치수·범례 생략) #}
+{# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 굵은 점선 = 늑판(웹)·거더, 가는 점선 = 론지,
+   실선 = 판 외곽·이음. 블록의 일부 구간(CL 쪽 L1~L7, FR0부터 16프레임)만 그린다. 누르면 href + 구역 ID 로 간다. compact = 폰용 #}
 {% macro plan(zones, href='/zones/', compact=False) %}
 {% set X0, Y0, CW, CH = 78, 84, 105, 90 %}{% set X1, Y1 = X0 + COLS * CW, Y0 + ROWS * CH %}{% set bid = BLK(zones[0].id) %}{% set fl = bid.endswith('P') %}{% set sk = zones[0].id[0] %}{% set sn, ssub, ax = SURFACES[sk] %}{% set FY = Y0 - (18 if compact else 10) %}
 <svg class="dwg{{ ' compact' if compact }}" viewBox="{{ '36 44 904 318' if compact else '0 0 1000 480' }}" role="img" aria-label="BLK {{ bid }} {{ sn }} · 검사 구역">
  {%- if not compact %}
  <rect class="sheet" x="6" y="6" width="988" height="468"/>
- <text class="h2" x="24" y="40">{{ sn }} · {% if sk == 'H' %}경사면을 펼친 모습, {{ '아래' if fl else '위' }}쪽이 내저판 쪽(HL1){% else %}위에서 본 평면 · {{ BLOCKS[bid] }} 블록의 CL 쪽 L1~L7 구간, {{ '아래' if fl else '위' }}쪽이 CL{% endif %} · 칸 하나 = 2프레임 × 2론지</text>
+ <text class="h2" x="24" y="40">{{ sn }} · {% if sk == 'H' %}경사면을 펼친 모습, {{ '아래' if fl else '위' }}쪽이 내저판 쪽(HL1){% else %}위에서 본 평면 · {{ BLOCKS[bid] }} 블록 일부(CL 쪽 L1~L7, Fr.{{ FR0 }}~{{ FR0 + COLS * 2 }}), {{ '아래' if fl else '위' }}쪽이 CL{% endif %} · 칸 하나 = 2프레임 × 2론지</text>
  <path class="fwd" d="M852,32 h60 m-9,-6 l9,6 l-9,6"/><text class="h2" x="844" y="36" text-anchor="end">FWD</text>
  {%- endif %}
  {%- for z in zones %}{% set r, c = CELL(z.id) %}
@@ -195,8 +202,8 @@
  <text x="{{ X1 + 26 }}" y="{{ (Y0 + Y1) / 2 }}" text-anchor="middle" transform="rotate(-90 {{ X1 + 26 }} {{ (Y0 + Y1) / 2 }})">{{ ROWS * 2 }} × 850 = {{ '{:,}'.format(ROWS * 2 * 850) }}</text>
  <g class="lw"><path d="M24,416 H56"/><path class="web" d="M300,416 H332"/><path class="hid" d="M24,442 H56"/></g>
  <rect class="key" x="300" y="434" width="32" height="16"/>
- <text class="h2" x="64" y="420">판 외곽 · 판 이음</text><text class="h2" x="340" y="420">늑판(웹) · 거더 (판 아래)</text>
- <text class="h2" x="64" y="446">론지 (판 아래)</text><text class="h2" x="340" y="446">검사 구역 (색 = 상태)</text>
+ <text class="h2" x="64" y="420">판 외곽 · 판 이음</text><text class="h2" x="340" y="420">늑판(웹) · 거더</text>
+ <text class="h2" x="64" y="446">론지 (보강재)</text><text class="h2" x="340" y="446">검사 구역 (색 = 상태)</text>
  <g class="tb"><rect x="606" y="402" width="388" height="72"/><path d="M606,420 H994 M606,438 H994 M606,456 H994 M726,402 V474 M880,438 V474"/></g>
  <text class="tb-b" x="616" y="415">BLASTTRACE</text><text x="736" y="415">시연용 예시 · 실제 도면 아님</text>
  <text x="616" y="433">SHIP {{ SHIP }}</text><text x="736" y="433">BLK {{ bid }} {{ sn }} 검사 구역도</text>

@@ -37,15 +37,16 @@ assert c.get("/blocks/B13P").status_code == 404 and c.get("/blocks/B12").status_
 assert 'href="/zones/Z-31"' in c.get("/blocks/B12S").text and 'href="/zones/Z-07"' not in c.get("/blocks/B12S").text
 
 # 블록 평면도: 칸 = 구역, 위치는 Fr/L로 부른다 (Z-07 = 위 줄 오른쪽에서 두 번째 칸)
-assert bt.zone_loc("Z-07") == "내저판 윗면 · Fr.132–134 · L1–L3 (P)" and bt.zone_loc("Z-31") == "내저판 윗면 · Fr.132–134 · L1–L3 (S)"
-assert bt.zone_loc("H-07") == "호퍼 경사판 · Fr.132–134 · HL1–HL3 (P)"
+assert bt.zone_loc("Z-07") == "이중저 밸러스트 탱크 · Fr.216–218 · L1–L3 (P)"
+assert bt.zone_loc("Z-31") == "이중저 밸러스트 탱크 · Fr.216–218 · L1–L3 (S)"
+assert bt.zone_loc("H-07") == "하부 호퍼 경사판 · Fr.216–218 · HL1–HL3 (P)"
 # 블록 안의 면 고르기: 면마다 구역이 따로 있고(?s=), 없는 면은 404
 assert bt.one("SELECT COUNT(*) n FROM zones")["n"] == 4 * 48
 hop = c.get("/blocks/B12P?s=H").text
 assert 'href="/zones/H-07"' in hop and 'href="/zones/Z-07"' not in hop and 'href="/blocks/B12P?s=D"' in hop
 assert 'href="/m/O-31"' in c.get("/m/blocks/B12S?s=O").text and c.get("/blocks/B12P?s=X").status_code == 404
 upload("/m/H-07/photo", S + "before.png")  # 다른 면도 같은 흐름이 돈다
-assert status("H-07") == "검토 대기" and "호퍼 경사판 · Fr.132–134" in c.get("/zones/H-07").text
+assert status("H-07") == "검토 대기" and "하부 호퍼 경사판 · Fr.216–218" in c.get("/zones/H-07").text
 assert bt.zone_cell("Z-07") == (2, 6) and bt.zone_cell("Z-31") == (0, 6)  # 좌현은 위에서 볼 때 L1 줄이 아래
 assert 'href="/m/Z-07"' in c.get("/m/blocks/B12P").text and 'href="/zones/Z-07"' in c.get("/blocks/B12P").text
 

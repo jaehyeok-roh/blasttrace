@@ -195,6 +195,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .secwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .sec{max-width:430px;justify-self:center}
 .sec .other{fill:rgba(31,79,255,.05)}
+.sec .halo{stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}
 .sec .sfa{fill:rgba(31,79,255,.12);cursor:pointer}
 .sec .sfa.on{fill:rgba(31,79,255,.30)}
 .sec a:hover .sfa{fill:rgba(31,79,255,.22)}
