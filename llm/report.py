@@ -26,7 +26,7 @@ def make_report(record: dict) -> dict:
             idx = " → ".join(str(s["rust_index"]) for s in f["spectra"])
             lines.append(f"  · 분광: 녹 지표 {idx}, 최근 판정 '{f['spectra'][-1]['label']}'")
     for r in record.get("recurrences", []):
-        lines.append(f"- 도장 후 재발: 도장 전 {r['pre']} 자리에서 {r['post']} 발생 → 표면처리·조치 원인 확인 필요")
+        lines.append(f"- 도장 후 재발: 도장 전 {r['pre']} 자리에서 {r['post']} 발생 → 표면처리·조치 원인 확인 필요 (같은 자리 = 도장 후 결함 중심이 도장 전 위치 안)")
     for r in record.get("rejected_spots", []):
         lines.append(f"- 도장 후 {r['post']}: 도장 전에 반려한 AI 후보 자리 (반려 이유: {r['reason'] or '미입력'}) → 반려 판단 재확인 필요")
     lines += ["", "※ 조도·염분·도막두께 등 계측값은 계측기 기록을 따른다.",

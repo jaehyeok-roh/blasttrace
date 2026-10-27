@@ -20,7 +20,7 @@
   <div><h3>도장 전 · {{ photo.ts }}</h3>{{ ui.photo(photo.src, marks, 'red', ids=True, polys=rej_marks, pcls='red prev', origin=photo.origin) }}</div>
   <div><h3>도장 후 · {{ post.ts }}</h3>{{ ui.photo(post.src, post_marks, 'red', ids=True, polys=polys, pcls='red prev', origin=post.origin) }}</div>
  </div>
- <p class="note" style="margin:10px 0 0">실선 = 지적 · 오른쪽 점선 = 도장 전 표시를 사진 정합으로 옮긴 위치 · 왼쪽 점선 = 도장 후 결함과 겹친 도장 전 반려 후보</p></div></div>
+ <p class="note" style="margin:10px 0 0">실선 = 지적 · 오른쪽 점선 = 도장 전 표시를 사진 정합으로 옮긴 위치 · 왼쪽 점선 = 도장 후 결함과 같은 자리였던 도장 전 반려 후보<br>같은 자리 기준: {{ SAME_SPOT }}</p></div></div>
 {% endif %}
 <div class="cols">
  <div>

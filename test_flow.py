@@ -237,8 +237,22 @@ c.post("/m/Z-15/photo", files={"photo": ("plate.png", flip.tobytes(), "image/png
 assert [bt.one("SELECT origin FROM photos WHERE zone_id=?", z)["origin"] for z in ("Z-14", "Z-15")] == ["합성", "시편"]
 assert "라벨 출처" in c.get("/data").text and "origin" in zipfile.ZipFile(io.BytesIO(c.get("/data/export.zip").content)).read("labels.csv").decode("utf-8-sig")
 
+# 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
+sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]
+assert bt.overlaps(sq, {"x0": 0.25, "y0": 0.25, "x1": 0.35, "y1": 0.35})
+assert not bt.overlaps(sq, {"x0": 0.38, "y0": 0.38, "x1": 0.6, "y1": 0.6})
+
+# 폰: 카메라 / 사진첩 버튼이 따로 있다
+mz = c.get("/m/Z-20").text
+assert "사진첩에서 고르기" in mz and mz.count('name="photo"') == 2
+
 # 사진이 아닌 파일은 거절
 r = c.post("/m/Z-13/photo", files={"photo": ("a.txt", b"hello", "text/plain")})
 assert r.status_code == 400
 
 print(f"OK  재검사 정합 대응점 {rc['matches']}개 · 오차 {err:.4f} / 도장 후 정합 {link['matches']}개 · 오차 {err2:.4f} / 도장 후 재검사 {rc4['matches']}개 · 오차 {err4:.4f}")
+
+# 시연 초기화: 서버를 끄지 않고 시작 상태로 (기록·올린 사진을 지우고 예시 데이터로 다시)
+c.post("/demo/reset")
+assert status("Z-07") == "검사 대기" and status("Z-04") == "조치 완료" and not any(bt.UPLOADS.iterdir())
+assert bt.one("SELECT COUNT(*) n FROM zones")["n"] == 4 * 48 and "시연 초기화" in c.get("/").text

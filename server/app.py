@@ -21,6 +21,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+import cv2
 import numpy as np
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
@@ -126,7 +127,9 @@ def origin_of(path):
 
 # AI 후보를 반려할 때 고르는 이유. 반려 이유가 곧 학습 데이터의 '헷갈리는 경우' 라벨이 된다
 REASONS = ["그림자·반사", "용접 비드", "마킹·글씨", "먼지·오염", "기타"]
-tpl.env.globals.update(REASONS=REASONS)
+# '같은 자리' 기준 (화면·보고서·PDF에 같은 문장을 쓴다). 조금만 스쳐도 같은 자리로 세지 않으려고 중심점으로 본다
+SAME_SPOT = "도장 후 결함 박스의 중심이 사진 정합으로 옮긴 도장 전 위치 안에 있으면 같은 자리"
+tpl.env.globals.update(REASONS=REASONS, SAME_SPOT=SAME_SPOT)
 
 
 def block_or_404(bid):
@@ -271,9 +274,9 @@ def pre_marks(post):
 
 
 def overlaps(pts, b):
-    """옮겨 온 4점을 감싸는 사각형과 박스 b가 조금이라도 겹치나"""
-    xs, ys = [x for x, _ in pts], [y for _, y in pts]
-    return min(xs) < b["x1"] and b["x0"] < max(xs) and min(ys) < b["y1"] and b["y0"] < max(ys)
+    """같은 자리인가: 박스 b(도장 후 지적)의 중심이 옮겨 온 4점 다각형(도장 전 위치) 안(경계 포함)에 있다"""
+    c = ((b["x0"] + b["x1"]) / 2, (b["y0"] + b["y1"]) / 2)
+    return cv2.pointPolygonTest(np.float32(pts).reshape(-1, 1, 2), c, False) >= 0
 
 
 def spots(post):
@@ -494,9 +497,25 @@ def seed_post(zid):
 
 with sqlite3.connect(DATA / "bt.db") as _c:
     _c.executescript(SCHEMA)
-if not one("SELECT 1 FROM zones"):
+def seed_all():
     seed()
     run("UPDATE photos SET origin='합성' WHERE origin IS NULL")  # 예시 사진은 전부 가공·합성 (README '예시 사진')
+
+
+if not one("SELECT 1 FROM zones"):
+    seed_all()
+
+
+@app.post("/demo/reset")
+def demo_reset():
+    """시연 초기화: 모든 기록과 올린 사진을 지우고 시연 시작 상태로 되돌린다. 서버를 끄지 않아도 된다 (리허설용)"""
+    for t in q("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"):
+        run(f"DELETE FROM {t['name']}")
+    for f in UPLOADS.iterdir():
+        f.unlink()
+    ARMED.clear()
+    seed_all()
+    return go("/")
 
 
 # ---------- 노트북 화면 ----------

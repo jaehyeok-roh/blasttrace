@@ -1,6 +1,7 @@
 {% extends 'm_base.html' %}{% import '_ui.html' as ui %}
 {% block body %}
-{% set busy = "document.body.classList.add('busy');this.form.submit()" %}
+{#- 같은 폼에 사진 입력이 둘(카메라 / 사진첩)이라, 고른 쪽만 보내고 나머지는 끈다 #}
+{% set busy = "document.body.classList.add('busy');this.form.querySelectorAll('input[type=file]').forEach(i => i.disabled = i !== this);this.form.submit()" %}
 <a class="note" href="/m/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">← 평면도로</a>
 <h1>{{ z.id }} <span class="note mono" style="font-size:13px">{{ LOC(z.id) }}</span></h1>
 <p style="margin:0 0 12px">{{ ui.tag(z.status) }}</p>
@@ -14,7 +15,8 @@
  <p class="note">도장이 끝난 같은 구역을 찍어주세요. 도장 전 지적 위치를 맞춰 표시합니다.</p>
  {% else %}<h2>도장 전 촬영</h2>
  <p class="note">블라스팅 표면을 찍어주세요. 반사가 심하면 다시 찍도록 안내합니다.</p>{% endif %}
- <label class="btn pri big">검사원 · 사진 찍기<input class="vh" type="file" name="photo" accept="image/*" capture="environment" required onchange="{{ busy }}"></label>
+ <label class="btn pri big">검사원 · 사진 찍기<input class="vh" type="file" name="photo" accept="image/*" capture="environment" onchange="{{ busy }}"></label>
+ <label class="btn big" style="margin-top:8px">사진첩에서 고르기<input class="vh" type="file" name="photo" accept="image/*" onchange="{{ busy }}"></label>
 </form>
 {% elif z.status == '검토 대기' %}
 <div class="card"><h2>검사원 확인 중</h2>
@@ -29,7 +31,7 @@
   <p class="note">{{ f.note or '내용 미입력' }}</p>
   {{ ui.photo(f.src, [f], 'red', ids=True) }}
   <input type="text" name="note" placeholder="한 일 (예: 부분 재블라스팅)">
-  <label class="btn big" style="margin-top:8px">완료 사진 첨부 (선택)<input class="vh" type="file" name="photo" accept="image/*" capture="environment" onchange="this.parentNode.firstChild.textContent='완료 사진 첨부됨 ✓'"></label>
+  <label class="btn big" style="margin-top:8px">완료 사진 첨부 (선택)<input class="vh" type="file" name="photo" accept="image/*" onchange="this.parentNode.firstChild.textContent='완료 사진 첨부됨 ✓'"></label>
   <button class="btn pri big" style="margin-top:8px">작업자 · 조치 완료 등록</button>
  </form>
  {% elif f.status == 'fixed' %}
@@ -37,7 +39,8 @@
   <h2><span class="mono">I-{{ '%02d' % f.id }}</span> 재검사</h2>
   <p class="note">빨간 박스 부위를 다시 찍어주세요. 각도가 달라도 이전 지적 위치를 맞춰 표시합니다.</p>
   {{ ui.photo(f.src, [f], 'red', ids=True) }}
-  <label class="btn blue big">검사원 · 재검사 사진 찍기<input class="vh" type="file" name="photo" accept="image/*" capture="environment" required onchange="{{ busy }}"></label>
+  <label class="btn blue big">검사원 · 재검사 사진 찍기<input class="vh" type="file" name="photo" accept="image/*" capture="environment" onchange="{{ busy }}"></label>
+  <label class="btn big" style="margin-top:8px">사진첩에서 고르기<input class="vh" type="file" name="photo" accept="image/*" onchange="{{ busy }}"></label>
  </form>
  {% elif f.status == 'recheck' %}
  <div class="card"><h2><span class="mono">I-{{ '%02d' % f.id }}</span> 판정 대기</h2><p class="note">노트북에서 검사원이 전후를 비교해 종결합니다.</p>
