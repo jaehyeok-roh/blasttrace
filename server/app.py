@@ -562,6 +562,65 @@ def dashboard(request: Request, bid: str, s: str = "Z"):
                 surf_n=surface_counts(bid))
 
 
+def at_of(hp):
+    """'품질관리자 A · 10-03 10:07' -> '10-03 10:07'"""
+    return (hp or "").split(" · ")[-1] or None
+
+
+def zone_timeline(z, photo, post, findings, nums):
+    """구역 이력 한 줄: 도장 전 촬영 -> 지적 -> 조치 -> 재검사 -> HP1 -> 도장 후 촬영 -> 도장 후 지적·조치 -> HP2.
+    단계마다 끝난 시각과 사진. state = done / now(처음으로 안 끝난 단계) / todo / skip(지적이 없어 건너뜀)"""
+    def stage(fs):
+        acts = [a for f in fs for a in q("SELECT * FROM actions WHERE finding_id=? ORDER BY id", f["id"])]
+        rcs = [r for f in fs for r in q("SELECT r.*, p.src FROM rechecks r JOIN photos p ON p.id = r.photo_id WHERE r.finding_id=? "
+                                         "ORDER BY r.id", f["id"])]
+        return acts, rcs
+    pre_f = [f for f in findings if f["kind"] == "pre"]
+    post_f = [f for f in findings if f["kind"] == "post"]
+    (pa, pr), (qa, qr) = stage(pre_f), stage(post_f)
+    reviewed = bool(photo and photo["reviewed"])
+    none = reviewed and not pre_f
+    s = [
+        dict(label="도장 전 촬영", at=photo and photo["ts"], img=photo and photo["src"], done=bool(photo)),
+        dict(label="지적 확정", at=min((f["ts"] for f in pre_f), default=None) or (at_of(z["hp1"]) if none else None),
+             sub=f"지적 {len(pre_f)}건" if pre_f else ("지적 없음" if reviewed else ""), done=reviewed),
+        dict(label="조치", at=max((a["ts"] for a in pa), default=None), sub=f"조치 {len(pa)}건" if pa else "",
+             done=bool(pre_f) and all(f["status"] != "open" for f in pre_f), skip=none),
+        dict(label="재검사", at=max((r["ts"] for r in pr), default=None), img=pr[-1]["src"] if pr else None,
+             done=bool(pre_f) and all(f["status"] == "closed" for f in pre_f), skip=none),
+        dict(label="Close-out · HP1", at=at_of(z["hp1"]), sub="도장 착수 승인" if z["hp1"] else "", done=bool(z["hp1"])),
+        dict(label="도장 후 촬영", at=post and post["ts"], img=post and post["src"], done=bool(post)),
+        dict(label="도장 후 지적·조치", at=max([a["ts"] for a in qa] + [r["ts"] for r in qr] + [f["ts"] for f in post_f], default=None),
+             sub=(f"지적 {len(post_f)}건" + (f" · 재발 {nums['recur']}" if nums["recur"] else "")) if post_f else ("지적 없음" if post and post["reviewed"] else ""),
+             done=bool(post and post["reviewed"]) and all(f["status"] == "closed" for f in post_f)),
+        dict(label="Release · HP2", at=at_of(z["hp2"]), sub="다음 공정 승인" if z["hp2"] else "", done=bool(z["hp2"])),
+    ]
+    now = False
+    for x in s:
+        x["state"] = "skip" if x.get("skip") else ("done" if x["done"] else ("todo" if now else "now"))
+        now = now or x["state"] == "now"
+    return s
+
+
+def next_step(z, todo, findings, post):
+    """지금 누가 무엇을 해야 하나 (구역 화면 '지금' 칸)"""
+    st, rc = z["status"], next((f for f in findings if f["status"] == "recheck"), None)
+    table = {
+        "검사 대기": ("검사원", f"폰으로 {'도장 후' if post_phase(z) else '도장 전'} 사진 찍기", f"/m/{z['id']}", None),
+        "촬영 불량": ("검사원", "반사가 많아 다시 찍기", f"/m/{z['id']}", None),
+        "검토 대기": ("검사원", "AI 후보 판정하기", f"/review/{todo['id']}" if todo else None, "AI 후보 보기"),
+        "Punch Open": ("작업자", "지적 부위 조치 후 완료 등록", None, None),
+        "조치 완료": ("검사원", "조치한 부위 재검사 사진 찍기", None, None),
+        "재검사 대기": ("검사원", "전후 비교 후 종결 판정", f"/findings/{rc['id']}" if rc else None, "전후 비교 보기"),
+        "Close-out": ("도장팀", "도장 착수 가능 · Hold Point 1 해제", None, None) if not post else
+                     ("검사원", "도장 후 사진 찍기", None, None),
+        "Release 완료": ("", "완료 · 다음 공정 진행 가능", None, None),
+    }
+    who, text, href, button = table[st]
+    why = "도장이 끝나면 폰에서 도장 후 사진을 찍습니다" if st == "Close-out" and not post else ""
+    return {"who": who, "text": text, "href": href if button else None, "button": button, "why": why}
+
+
 @app.get("/zones/{zid}")
 def zone(request: Request, zid: str):
     z = zone_or_404(zid)
@@ -588,9 +647,24 @@ def zone(request: Request, zid: str):
                      for c in q("SELECT * FROM candidates WHERE decision='rejected' AND photo_id=?", photo["id"]) if c["id"] in hit]
     events = q("SELECT * FROM events WHERE zone_id=? ORDER BY id", zid)
     report = make_report(record(zid)) if findings else None
+    nums = {"pre": sum(f["kind"] == "pre" for f in findings), "post": sum(f["kind"] == "post" for f in findings),
+            "open": sum(f["status"] != "closed" for f in findings), "reworks": sum(f["reworks"] or 0 for f in findings),
+            "recur": sum(r["kind"] == "재발" for r in recurs), "rej": sum(r["kind"] == "반려" for r in recurs)}
+    spot = {r["post"]: ("도장 전 I-%02d 자리 재발" % r["pre"]) if r["kind"] == "재발" else
+            ("반려했던 자리" if r["kind"] == "반려" else "도장 전 기록 없음") for r in recurs}
+    cases = []
+    for f in findings:
+        p = one("SELECT * FROM photos WHERE id=?", f["photo_id"])
+        rc = one("SELECT r.*, p.src FROM rechecks r JOIN photos p ON p.id = r.photo_id WHERE r.finding_id=? ORDER BY r.id DESC", f["id"])
+        cases.append({"f": f, "src": p["src"], "w": p["w"], "h": p["h"], "spot": spot.get(f["id"]),
+                      "acts": [{"note": a["note"], "at": a["ts"]} for a in q("SELECT * FROM actions WHERE finding_id=? ORDER BY id", f["id"])],
+                      "rc": rc and {"src": rc["src"], "poly": json.loads(rc["poly"]), "success": rc["success"], "matches": rc["matches"], "at": rc["ts"]}})
+    todo = one("SELECT * FROM photos WHERE zone_id=? AND ok=1 AND reviewed=0 ORDER BY id DESC", zid)
     return page(request, "zone.html", step=7 if post else ZONE_STEP[z["status"]], z=z, photo=photo, post=post,
-                todo=post or photo, findings=findings, marks=marks, post_marks=post_marks, link=link, polys=polys,
-                recurs=recurs, rej_marks=rej_marks, events=events, report=report)
+                findings=findings, marks=marks, post_marks=post_marks, link=link, polys=polys,
+                recurs=recurs, rej_marks=rej_marks, events=events, report=report, nums=nums, cases=cases,
+                timeline=zone_timeline(z, photo, post, findings, nums), nxt=next_step(z, todo, findings, post),
+                mini=q("SELECT * FROM zones WHERE block=? AND id LIKE ? ORDER BY id", z["block"], f"{zid[0]}-%"))
 
 
 @app.get("/review/{pid}")

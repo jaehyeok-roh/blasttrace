@@ -6,9 +6,29 @@
  <span>{{ ui.tag(z.status) }}{% if z.mock %} <span class="tag c-mute">예시 데이터</span>{% endif %}</span>
 </div>
 {% if z.mock and not events and z.status != '검사 대기' %}<div class="banner">지도 색을 보여 주려고 넣은 예시 구역이라 기록이 없습니다 · 기록이 있는 예시는 <a href="/zones/Z-03">Z-03</a> · <a href="/zones/Z-04">Z-04</a></div>{% endif %}
-{% if z.status == '검토 대기' and todo %}<a class="banner" style="display:block" href="/review/{{ todo.id }}">새 사진이 올라왔습니다 · AI 후보 확인하기 →</a>{% endif %}
-{% if z.status in ('검사 대기', '촬영 불량') %}<div class="banner">폰에서 촬영을 기다리는 중입니다 · <span class="mono">/m/{{ z.id }}</span></div>{% endif %}
-{% if z.status == 'Close-out' and not post %}<div class="banner">Hold Point 1 해제 · 도장 착수 가능 · 도장이 끝나면 폰에서 도장 후 사진을 찍습니다 · <span class="mono">/m/{{ z.id }}</span></div>{% endif %}
+
+{#- 한눈에: 어디인지 / 지금 누가 무엇을 / 숫자 요약 #}
+<div class="panel"><div class="pb sum">
+ <div><h3>위치</h3>{{ ui.plan(mini, '/zones/', compact=True, cur=z.id) }}
+  <p class="note" style="margin:8px 0 0">{{ BLK(z.id) }} · {{ LOC(z.id) }} · <a href="/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">블록 화면 →</a></p></div>
+ <div><h3>지금</h3>{{ ui.tag(z.status) }}
+  <div class="now">{{ nxt.text }}</div>{% if nxt.who or nxt.why %}<p class="note" style="margin:0">{{ nxt.who }}{{ ' · ' if nxt.who and nxt.why }}{{ nxt.why }}</p>{% endif %}
+  {% if nxt.href %}<a class="btn blue" style="margin-top:12px" href="{{ nxt.href }}">{{ nxt.button }} →</a>{% endif %}</div>
+ <div><h3>요약</h3><div class="kv">
+  <span>지적</span><b>{{ nums.pre }}건 <span class="note">도장 전</span> · {{ nums.post }}건 <span class="note">도장 후</span></b>
+  <span>미종결</span><b>{{ nums.open }}건</b>
+  <span>재조치</span><b>{{ nums.reworks }}회</b>
+  <span>같은 자리</span><b>재발 {{ nums.recur }} · 반려했던 자리 {{ nums.rej }}</b>
+  <span>HP1</span><b>{% if z.hp1 %}<span class="tag c-release">해제</span> <span class="note">{{ z.hp1 }}</span>{% else %}<span class="tag c-wait">대기</span> <span class="note">승인 전 도장 착수 금지</span>{% endif %}</b>
+  <span>HP2</span><b>{% if z.hp2 %}<span class="tag c-release">해제</span> <span class="note">{{ z.hp2 }}</span>{% else %}<span class="tag c-wait">대기</span> <span class="note">Release 전 다음 공정 금지</span>{% endif %}</b>
+ </div></div>
+</div></div>
+
+{#- 이력 한 줄: 단계마다 날짜와 사진 #}
+<div class="panel"><div class="ph"><h2>이력 한눈에</h2><span class="note">파랑 = 끝난 단계 · 주황 테두리 = 지금 단계</span></div>
+ <div class="pb"><ol class="tl">{% for s in timeline %}<li class="{{ s.state }}"><i class="dot"></i><b>{{ s.label }}</b><span class="at">{{ s.at or ('생략' if s.state == 'skip' else '—') }}</span>
+  {%- if s.sub %}<small>{{ s.sub }}</small>{% endif %}{% if s.img %}<span class="th" style="background-image:url('{{ s.img }}')"></span>{% endif %}</li>{% endfor %}</ol></div></div>
+
 {% if post %}
   {% for r in recurs %}
   {%- if r.kind == '재발' %}<div class="verdict fail">도장 전 I-{{ '%02d' % r.pre }} 자리에서 도장 후 결함 I-{{ '%02d' % r.post }} 재발<span>도장 전 조치: {{ r.action or '기록 없음' }} → 표면처리·조치 원인 확인 필요 · 판정 데이터에 '같은 자리 재발'로 남음</span></div>
@@ -21,32 +41,32 @@
   <div><h3>도장 후 · {{ post.ts }}</h3>{{ ui.photo(post.src, post_marks, 'red', ids=True, polys=polys, pcls='red prev', origin=post.origin) }}</div>
  </div>
  <p class="note" style="margin:10px 0 0">실선 = 지적 · 오른쪽 점선 = 도장 전 표시를 사진 정합으로 옮긴 위치 · 왼쪽 점선 = 도장 후 결함과 같은 자리였던 도장 전 반려 후보<br>같은 자리 기준: {{ SAME_SPOT }}</p></div></div>
+{% elif photo %}
+<div class="panel"><div class="ph"><h2>도장 전 사진</h2><span class="note mono">{{ photo.ts }} · 반사 {{ '%.1f' % (photo.glare * 100) }}%</span></div>
+ <div class="pb" style="max-width:760px">{{ ui.photo(photo.src, marks, 'red', ids=True, origin=photo.origin) }}</div></div>
 {% endif %}
-<div class="cols">
- <div>
-  {% if photo and not post %}
-  <div class="panel"><div class="ph"><h2>도장 전 사진</h2><span class="note mono">{{ photo.ts }} · 반사 {{ '%.1f' % (photo.glare * 100) }}%</span></div>
-   <div class="pb">{{ ui.photo(photo.src, marks, 'red', ids=True, origin=photo.origin) }}</div></div>
-  {% endif %}
-  <div class="panel"><div class="ph"><h2>지적</h2><span class="note">{{ findings|length }}건</span></div><div class="pb">
-   {% for f in findings %}<a class="row" href="/findings/{{ f.id }}"><span><b class="mono">I-{{ '%02d' % f.id }}</b> <span class="note">{{ '도장 후' if f.kind == 'post' else '도장 전' }}</span> {{ f.note or '내용 미입력' }}</span>{{ ui.tag(FINDING[f.status]) }}</a>
-   {% else %}<p class="note">확정된 지적이 없습니다.</p>{% endfor %}
-  </div></div>
- </div>
- <div>
-  <div class="panel"><div class="ph"><h2>Hold Point</h2><span class="note">검사원 승인 전 다음 공정 착수 금지</span></div><div class="pb">
-   {% for n, name, v, rule in [(1, '도장 전 표면처리 검사', z.hp1, '승인 전 도장 착수 금지'), (2, '도장 후 검사', z.hp2, 'Release 전 다음 공정 착수 금지')] %}
-   <div class="row"><span><b class="mono">HP{{ n }}</b> {{ name }}</span>{% if v %}<span><span class="tag c-release">해제</span> <span class="note">승인 {{ v }}</span></span>{% else %}<span><span class="tag c-wait">대기</span> <span class="note">{{ rule }}</span></span>{% endif %}</div>
-   {% endfor %}
-  </div></div>
-  <div class="panel"><div class="ph"><h2>검사 이력</h2></div><div class="pb">
-   {% for e in events %}<div class="row"><span>{{ e.text }}</span><span class="note mono">{{ e.ts }}</span></div>
-   {% else %}<p class="note">기록이 없습니다. 지도 색만 보여주려고 넣어둔 예시 상태입니다.</p>{% endfor %}
-  </div></div>
-  {% if report %}
-  <div class="panel"><div class="ph"><h2>보고서 초안 <span class="note mono">{{ report.model }} · {{ report.prompt_version }}</span></h2><a class="btn" href="/zones/{{ z.id }}/export.csv">CSV 내보내기</a></div>
-   <div class="pb"><pre class="report">{{ report.text }}</pre></div></div>
-  {% endif %}
- </div>
-</div>
+
+{#- 지적별 이력: 지적 → 조치 → 재검사 → 결과 #}
+<div class="panel"><div class="ph"><h2>지적별 이력</h2><span class="note">{{ cases|length }}건 · 누르면 지적 화면</span></div><div class="pb">
+ {% for c in cases %}{% set f = c.f %}
+ <a class="case" href="/findings/{{ f.id }}">
+  <div class="cell"><h4><b class="mono">I-{{ '%02d' % f.id }}</b> · {{ '도장 후' if f.kind == 'post' else '도장 전' }} 지적</h4>{{ ui.crop(c.src, c.w, c.h, f) }}
+   <p>{{ f.note or '내용 미입력' }}</p><span class="note mono">{{ f.ts }}</span>{% if c.spot %} <span class="tag c-punch">{{ c.spot }}</span>{% endif %}</div>
+  <div class="cell"><h4>조치</h4>{% for a in c.acts %}<p>{{ a.note or '내용 미입력' }} <span class="note mono">{{ a.at }}</span></p>{% else %}<p class="note">아직 없음</p>{% endfor %}
+   {% if f.reworks %}<span class="tag c-punch">재조치 {{ f.reworks }}회</span>{% endif %}</div>
+  <div class="cell"><h4>재검사</h4>{% if c.rc %}{{ ui.photo(c.rc.src, [], 'red', polys=[('이전 위치', c.rc.poly)] if c.rc.poly else []) }}
+   <span class="note mono">{{ c.rc.at }} · {{ ('정합 성공 · 대응점 %d개' % c.rc.matches) if c.rc.success else '자동 맞춤 실패' }}</span>{% else %}<p class="note">아직 없음</p>{% endif %}</div>
+  <div class="cell"><h4>결과</h4>{{ ui.tag(FINDING[f.status]) }}{% if f.closed_at %}<p class="note mono">종결 {{ f.closed_at }}</p>{% endif %}</div>
+ </a>
+ {% else %}<p class="note">확정된 지적이 없습니다.</p>{% endfor %}
+</div></div>
+
+<details class="panel more"><summary class="ph"><h2>전체 기록</h2><span class="note">{{ events|length }}줄 · 펼치기</span></summary><div class="pb">
+ {% for e in events %}<div class="row"><span>{{ e.text }}</span><span class="note mono">{{ e.ts }}</span></div>
+ {% else %}<p class="note">기록이 없습니다.</p>{% endfor %}
+</div></details>
+{% if report %}
+<details class="panel more"><summary class="ph"><h2>보고서 초안 <span class="note mono">{{ report.model }} · {{ report.prompt_version }}</span></h2><span class="note">펼치기</span></summary>
+ <div class="pb"><a class="btn" href="/zones/{{ z.id }}/export.csv">CSV 내보내기</a><pre class="report">{{ report.text }}</pre></div></details>
+{% endif %}
 {% endblock %}

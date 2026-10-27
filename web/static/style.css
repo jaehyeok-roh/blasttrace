@@ -203,6 +203,38 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .l3d{font:600 12px Pretendard,'맑은 고딕',sans-serif;color:var(--sub);background:rgba(255,255,255,.85);padding:1px 6px;border-radius:4px;white-space:nowrap}
 .l3d.on{color:#fff;background:var(--blue)}
 .s3.compact .l3d{font-size:10px}
+/* 구역 화면: 한눈에(위치 · 지금 · 요약), 이력 한 줄, 지적별 이력 */
+.sum{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.15fr);gap:22px;align-items:start}
+.sum h3{font-size:12.5px;color:var(--sub);margin:0 0 8px;font-weight:600}
+.now{font-size:19px;font-weight:700;margin:10px 0 4px;letter-spacing:-.01em}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13.5px;align-items:center}
+.kv>span{color:var(--sub)}
+.kv b{font-weight:600}
+.dwg .z.cur{stroke:var(--ink);stroke-width:6}
+.tl{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0}
+.tl li{position:relative;padding-top:24px}
+.tl li::before{content:'';position:absolute;top:8px;left:8px;right:-10px;height:3px;background:var(--line)}
+.tl li:last-child::before{display:none}
+.tl li.done::before{background:var(--blue)}
+.tl .dot{position:absolute;top:1px;left:0;width:17px;height:17px;border-radius:50%;background:#fff;border:3px solid #C9CBD3;box-sizing:border-box}
+.tl li.done .dot{background:var(--blue);border-color:var(--blue)}
+.tl li.now .dot{border-color:#F97316}
+.tl b{display:block;font-size:13px}
+.tl .at{display:block;font:12px 'JetBrains Mono',Consolas,monospace;color:var(--sub)}
+.tl small{display:block;font-size:12px;color:var(--ink)}
+.tl .th{display:block;margin-top:8px;aspect-ratio:4/3;border-radius:6px;background:var(--soft) center/cover no-repeat}
+.tl li.todo,.tl li.skip{opacity:.5}
+.case{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.9fr) minmax(0,1.1fr) minmax(0,.6fr);gap:22px;align-items:start;padding:16px 0;border-bottom:1px solid var(--line);color:var(--ink)}
+.case:last-child{border-bottom:0}
+.case:hover{background:var(--soft)}
+.case .cell{position:relative;font-size:13px}
+.case .cell+.cell::before{content:'→';position:absolute;left:-16px;top:28px;color:var(--sub)}
+.case h4{font-size:12.5px;color:var(--sub);margin:0 0 8px;font-weight:600}
+.case p{margin:6px 0 2px}
+.case .crop{max-width:220px}
+details.more>summary{cursor:pointer;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more:not([open])>summary{border-bottom:0}
 /* 면 고르기 (중앙 횡단면): 지금 블록 쪽 네 면만 누를 수 있다 */
 .secwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .sec{max-width:430px;justify-self:center}

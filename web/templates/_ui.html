@@ -180,7 +180,7 @@
 
 {# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 굵은 점선 = 늑판(웹)·거더, 가는 점선 = 론지,
    실선 = 판 외곽·이음. 블록의 일부 구간(CL 쪽 L1~L7, FR0부터 16프레임)만 그린다. 누르면 href + 구역 ID 로 간다. compact = 폰용 #}
-{% macro plan(zones, href='/zones/', compact=False) %}
+{% macro plan(zones, href='/zones/', compact=False, cur=None) %}
 {% set X0, Y0, CW, CH = 78, 84, 105, 90 %}{% set X1, Y1 = X0 + COLS * CW, Y0 + ROWS * CH %}{% set bid = BLK(zones[0].id) %}{% set fl = bid.endswith('P') %}{% set sk = zones[0].id[0] %}{% set sn, ssub, ax = SURFACES[sk] %}{% set FY = Y0 - (18 if compact else 10) %}
 <svg class="dwg{{ ' compact' if compact }}" viewBox="{{ '36 44 904 318' if compact else '0 0 1000 480' }}" role="img" aria-label="BLK {{ bid }} {{ sn }} · 검사 구역">
  {%- if not compact %}
@@ -189,7 +189,7 @@
  <path class="fwd" d="M852,32 h60 m-9,-6 l9,6 l-9,6"/><text class="h2" x="844" y="36" text-anchor="end">FWD</text>
  {%- endif %}
  {%- for z in zones %}{% set r, c = CELL(z.id) %}
- <a class="s-{{ STATUS[z.status] }}" href="{{ href }}{{ z.id }}"><rect class="z" x="{{ X0 + c * CW + 2 }}" y="{{ Y0 + r * CH + 2 }}" width="{{ CW - 4 }}" height="{{ CH - 4 }}"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ z.status }}</title></a>
+ <a class="s-{{ STATUS[z.status] }}" href="{{ href }}{{ z.id }}"><rect class="z{{ ' cur' if z.id == cur }}" x="{{ X0 + c * CW + 2 }}" y="{{ Y0 + r * CH + 2 }}" width="{{ CW - 4 }}" height="{{ CH - 4 }}"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ z.status }}</title></a>
  {%- endfor %}
  <g class="lw">
  {#- 길이 120 m가 넘는 배의 이중저는 종늑골식: 촘촘한 건 론지, 가로 부재(늑판·웹)는 프레임 몇 칸마다 #}
@@ -244,6 +244,15 @@
 </svg>
 <details class="tbl"><summary>값 표로 보기</summary><table><tr><th>파장 (nm)</th>{% for s in shown %}<th>측정 {{ base + loop.index }}</th>{% endfor %}</tr>
  {%- for nm in WL %}{% set i = loop.index0 %}<tr><td>{{ nm }}</td>{% for s in shown %}<td>{{ s.refl[i] }}</td>{% endfor %}</tr>{% endfor %}</table></details>
+{% endmacro %}
+
+{# 사진에서 박스 b(0~1 비율) 둘레를 잘라 확대해 보여 준다 (박스 크기의 60%만큼 더). w, h = 원본 픽셀 #}
+{% macro crop(src, w, h, b) %}
+{%- set m = [b.x1 - b.x0, b.y1 - b.y0]|max * 0.6 %}
+{%- set cx0, cy0, cx1, cy1 = [b.x0 - m, 0]|max, [b.y0 - m, 0]|max, [b.x1 + m, 1]|min, [b.y1 + m, 1]|min %}
+{%- set cw, ch = cx1 - cx0, cy1 - cy0 %}
+<div class="crop" style="background-image:url('{{ src }}');aspect-ratio:{{ cw * w }} / {{ ch * h }};background-size:{{ 100 / cw }}% {{ 100 / ch }}%;background-position:{{ cx0 / (1 - cw) * 100 if cw < 1 else 0 }}% {{ cy0 / (1 - ch) * 100 if ch < 1 else 0 }}%">
+ <i style="left:{{ (b.x0 - cx0) / cw * 100 }}%;top:{{ (b.y0 - cy0) / ch * 100 }}%;width:{{ (b.x1 - b.x0) / cw * 100 }}%;height:{{ (b.y1 - b.y0) / ch * 100 }}%;border-color:#DC2626"></i></div>
 {% endmacro %}
 
 {# 사진 위 표시. rects는 x0~y1(0~1 비율)을 가진 행, polys는 [(이름, [[x, y] * 4])], pcls는 다각형 색 (없으면 cls) #}
