@@ -674,9 +674,17 @@ def review(request: Request, pid: int):
         raise HTTPException(404, "없는 사진")
     cands = q("SELECT * FROM candidates WHERE photo_id=? ORDER BY score DESC", pid)
     picked = {r["cand_id"] for r in q("SELECT cand_id FROM findings WHERE photo_id=?", pid)}
-    polys = pre_marks(p)[1] if p["kind"] == "post" else []
+    polys, hints = [], {}
+    if p["kind"] == "post":  # 판정하는 자리에서 도장 전 기록을 보여 준다: 후보가 도장 전 지적·반려 자리와 겹치면 힌트
+        polys = pre_marks(p)[1]
+        found, rej = moved_pre(p)[1], moved_pre(p, True)[1]
+        for c in cands:
+            hit = ([("punch", f"도장 전 I-{f['id']:02d} 자리 · 재발 의심") for f, pts in found if overlaps(pts, c)]
+                   + [("review", f"도장 전 반려 자리 · {r['reason'] or '이유 없음'}") for r, pts in rej if overlaps(pts, c)])
+            if hit:
+                hints[c["id"]] = hit[0]
     return page(request, "review.html", step=7 if p["kind"] == "post" else 2, p=p, cands=cands, picked=picked,
-                polys=polys)
+                polys=polys, hints=hints)
 
 
 @app.post("/review/{pid}")
@@ -967,6 +975,8 @@ def m_zone(request: Request, zid: str, msg: str = ""):
 @app.post("/m/{zid}/photo")
 def m_photo(zid: str, photo: UploadFile = File(...)):
     z = zone_or_404(zid)
+    if z["status"] not in ("검사 대기", "촬영 불량", "Close-out"):  # 폰에 옛 화면이 남아 두 번 올려도 미검토 사진이 쌓이지 않게
+        return go(f"/m/{zid}?msg=지금은 사진을 받지 않습니다 ({z['status']}). 노트북에서 먼저 처리하세요")
     kind = "post" if post_phase(z) else "pre"
     stage = "도장 후" if kind == "post" else "도장 전"
     src, (w, h) = save(photo)

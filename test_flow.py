@@ -57,6 +57,8 @@ upload("/m/Z-07/photo", S + "before.png")
 assert c.get("/api/v").json()["v"] > v0 and c.get("/api/v").json()["photo"]["zone_id"] == "Z-07"
 assert "<img" in c.get("/m/Z-07").text  # 폰에도 방금 올린 사진과 AI 후보가 보인다
 assert status("Z-07") == "검토 대기"
+upload("/m/Z-07/photo", S + "before.png")  # 폰에서 두 번 올려도(옛 화면·뒤로 가기) 판정 전에는 받지 않는다
+assert bt.one("SELECT COUNT(*) n FROM photos WHERE zone_id='Z-07'")["n"] == 1
 pid = bt.one("SELECT id FROM photos WHERE zone_id='Z-07'")["id"]
 
 # ② AI 후보 -> ③ 지적 확정
@@ -129,6 +131,7 @@ assert status("Z-03") == "검토 대기" and c.get(f"/review/{post['id']}").stat
 pc = bt.q("SELECT * FROM candidates WHERE photo_id=?", post["id"])
 xs, ys = [x for x, _ in polys[0][1]], [y for _, y in polys[0][1]]
 assert len(pc) == 1 and min(xs) < (pc[0]["x0"] + pc[0]["x1"]) / 2 < max(xs) and min(ys) < (pc[0]["y0"] + pc[0]["y1"]) / 2 < max(ys)
+assert "자리 · 재발 의심" in c.get(f"/review/{post['id']}").text  # 판정하는 자리에서 도장 전 기록이 보인다
 c.post(f"/review/{post['id']}", data={"pick": [pc[0]["id"]], "note": "녹 번짐"})
 assert status("Z-03") == "Punch Open"
 f4 = bt.one("SELECT id FROM findings WHERE photo_id=?", post["id"])["id"]
@@ -263,7 +266,7 @@ mz = c.get("/m/Z-20").text
 assert "사진첩에서 고르기" in mz and mz.count('name="photo"') == 2
 
 # 사진이 아닌 파일은 거절
-r = c.post("/m/Z-13/photo", files={"photo": ("a.txt", b"hello", "text/plain")})
+r = c.post("/m/Z-21/photo", files={"photo": ("a.txt", b"hello", "text/plain")})
 assert r.status_code == 400
 
 print(f"OK  재검사 정합 대응점 {rc['matches']}개 · 오차 {err:.4f} / 도장 후 정합 {link['matches']}개 · 오차 {err2:.4f} / 도장 후 재검사 {rc4['matches']}개 · 오차 {err4:.4f}")

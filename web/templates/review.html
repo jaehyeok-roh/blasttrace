@@ -23,7 +23,8 @@
    <div class="crop" style="background-image:url('{{ p.src }}');aspect-ratio:{{ cw * p.w }} / {{ ch * p.h }};background-size:{{ 100 / cw }}% {{ 100 / ch }}%;background-position:{{ cx0 / (1 - cw) * 100 if cw < 1 else 0 }}% {{ cy0 / (1 - ch) * 100 if ch < 1 else 0 }}%">
     <i style="left:{{ (c.x0 - cx0) / cw * 100 }}%;top:{{ (c.y0 - cy0) / ch * 100 }}%;width:{{ (c.x1 - c.x0) / cw * 100 }}%;height:{{ (c.y1 - c.y0) / ch * 100 }}%"></i></div>
    <div>
-    <div class="cc-h"><b class="mono">{{ '%02d' % loop.index }}</b> {% if c.source == 'manual' %}검사원 직접 추가{% else %}다시 볼 곳 <span class="note mono">AI 점수 {{ '%.2f' % c.score }}</span>{% endif %}</div>
+    <div class="cc-h"><b class="mono">{{ '%02d' % loop.index }}</b> {% if c.source == 'manual' %}검사원 직접 추가{% else %}다시 볼 곳 <span class="note mono">AI 점수 {{ '%.2f' % c.score }}</span>{% endif %}
+     {%- if hints.get(c.id) %}<br><span class="tag c-{{ hints[c.id][0] }}">{{ hints[c.id][1] }}</span>{% endif %}</div>
     {% if not p.reviewed %}
     <input type="hidden" name="rc" value="{{ c.id }}"><input type="hidden" name="reason" value=""><input type="checkbox" name="pick" value="{{ c.id }}" hidden>
     <div class="dec"><button type="button" class="btn d-pick">지적</button><button type="button" class="btn d-rej">반려</button></div>
