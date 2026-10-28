@@ -268,7 +268,8 @@
   {%- for b in rects %}<rect class="box {{ cls }}" x="{{ b.x0 }}" y="{{ b.y0 }}" width="{{ b.x1 - b.x0 }}" height="{{ b.y1 - b.y0 }}"/>{% endfor %}
   {%- for name, pts in polys %}<polygon class="box {{ pc }}" points="{% for x, y in pts %}{{ x }},{{ y }} {% endfor %}"/>{% endfor %}
  </svg>
- {%- for b in rects %}<span class="num {{ cls }}" style="left:{{ b.x0 * 100 }}%;top:{{ b.y0 * 100 }}%">{{ ('I-%02d' % b.id) if ids else ('%02d' % loop.index) }}</span>{% endfor %}
+ {#- 번호는 박스 바깥 위에: 작은 박스를 덮지 않게. 사진 맨 위에 붙으면 바깥 아래로 #}
+ {%- for b in rects %}{% set up = b.y0 > 0.13 %}<span class="num {{ cls }}{{ ' at-b' if up }}" style="left:{{ b.x0 * 100 }}%;top:{{ (b.y0 if up else b.y1) * 100 }}%">{{ ('I-%02d' % b.id) if ids else ('%02d' % loop.index) }}</span>{% endfor %}
  {#- 다각형 이름은 다각형 바깥 아래에: 안쪽 사각형(지적) 이름·박스를 덮지 않게. 사진 맨 아래에 붙으면 안쪽으로 #}
  {%- for name, pts in polys %}{% set by = pts|map(attribute='1')|max %}
  <span class="num {{ 'at-b' if by > 0.9 }} {{ pc }}" style="left:{{ (pts|map(attribute='0')|min) * 100 }}%;top:{{ by * 100 }}%">{{ name }}</span>{% endfor %}

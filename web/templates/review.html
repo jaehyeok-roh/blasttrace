@@ -90,8 +90,9 @@
     const inp = Object.assign(document.createElement('input'), {type: 'hidden', name: 'manual', className: 'manual',
       value: [x0, y0, x1, y1].map(v => v.toFixed(4)).join(',')});
     form.appendChild(inp);
-    const tag = Object.assign(document.createElement('span'), {className: 'num red manual', textContent: '직접 ' + (++n)});
-    Object.assign(tag.style, {left: x0 * 100 + '%', top: y0 * 100 + '%'}); ph.appendChild(tag);
+    const up = y0 > 0.13;  // _ui.html photo()와 같은 규칙: 번호는 박스 바깥 위, 맨 위면 아래
+    const tag = Object.assign(document.createElement('span'), {className: 'num red manual' + (up ? ' at-b' : ''), textContent: '직접 ' + (++n)});
+    Object.assign(tag.style, {left: x0 * 100 + '%', top: (up ? y0 : y1) * 100 + '%'}); ph.appendChild(tag);
     document.getElementById('manual-n').textContent = n;
   });
   window.clearManual = () => { document.querySelectorAll('.manual').forEach(el => el.remove()); n = 0; document.getElementById('manual-n').textContent = 0; };
