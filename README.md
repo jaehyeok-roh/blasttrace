@@ -114,6 +114,8 @@ AI는 다시 볼 곳만 제안하고, 지적·종결은 검사원(노트북 사�
 
 - 좌표: `predict`는 원본 픽셀 `x, y, w, h`, `align`의 변환행렬도 원본 픽셀 기준. 서버가 0\~1 비율로 바꿔 저장합니다.
 - 서버가 돌고 있으면 `http://localhost:8000/api/zones/Z-03/record`로 `make_report`의 실제 입력을 볼 수 있습니다.
+- 3D 프론트는 `http://localhost:8000/api/zones/Z-04/case`를 받습니다. 노션 "프론트 연동 데이터 구조안"의 Inspection Case 모양에
+  사진·지적별 기록·Hold Point·같은 자리 결과를 덧붙였습니다. 예시는 `shared/case.json`(Z-04).
 - 화면에 모델 이름(`rust-color-v0`, `template-v0`)이 그대로 표시됩니다. 미리 넣은 기록에는 `예시` 태그가 붙습니다.
 
 ## 합치기 전 확인

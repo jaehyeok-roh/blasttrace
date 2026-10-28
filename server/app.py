@@ -890,6 +890,49 @@ def api_record(zid: str):
     return record(zid)
 
 
+# 프론트 연동 데이터 구조안(노션, 10/28)의 Inspection Case 모양. 구역 하나 = 검사 위치 하나 = Case 하나.
+# 구역 상태 -> (stage, case_status, inspector_decision). 도장 후 사진이 들어온 뒤의 검토·지적은 COATING_INSPECTION
+CASE = {"검사 대기": ("SURFACE_PREP", "OPEN", "PENDING"), "촬영 불량": ("SURFACE_PREP", "OPEN", "PENDING"),
+        "검토 대기": ("SURFACE_PREP", "OPEN", "PENDING"), "Punch Open": ("SURFACE_PREP", "REPAIR", "REPAIR"),
+        "조치 완료": ("REINSPECTION", "REINSPECTION", "REPAIR"), "재검사 대기": ("REINSPECTION", "REINSPECTION", "REPAIR"),
+        "Close-out": ("PAINTING", "OPEN", "PASS"), "Release 완료": ("COATING_INSPECTION", "CLOSED", "PASS")}
+
+
+def case(zid):
+    z = zone_or_404(zid)
+    stage, status, decision = CASE[z["status"]]
+    if stage == "SURFACE_PREP" and one("SELECT 1 FROM photos WHERE zone_id=? AND kind='post'", zid):
+        stage = "COATING_INSPECTION"
+    pre = one("SELECT * FROM photos WHERE zone_id=? AND kind='pre' AND ok=1 ORDER BY id DESC", zid)
+    top = max((c["score"] for c in q("SELECT score FROM candidates WHERE photo_id=? AND source='ai'", pre["id"])),
+              default=None) if pre else None
+    r = one("SELECT r.* FROM rechecks r JOIN findings f ON f.id = r.finding_id WHERE f.zone_id=? ORDER BY r.id DESC", zid)
+    rec, name = record(zid), zid.replace("-", "")
+    return {
+        "case_id": f"INS-{name}",
+        "location": {"block_id": z["block"], "zone_id": name, "location_id": f"{z['block']}-{name}"},
+        "stage": stage, "case_status": status,
+        "surface_ai": {"available": bool(pre), "label": ("RECHECK" if top is not None else "NORMAL") if pre else None,
+                       "score": top},
+        "evidence": {"heatmap_url": None, "defect_mask_url": None, "anomaly_score": None, "similar_cases": []},
+        "coating_thickness": {"available": False, "estimated_um": None, "measured_um": None, "target_ndft_um": 320,
+                              "model_scope": "POC_ONLY", "model_version": None},
+        # SIFT 정합은 RANSAC을 통과한 대응점 수만 남긴다. LightGlue로 바꾸면 match_count·inlier_ratio도 채운다
+        "registration": {"available": bool(r), "match_count": None, "inlier_count": r["matches"] if r else None,
+                         "inlier_ratio": None, "status": ("SUCCESS" if r["success"] else "FAILED") if r else None},
+        "inspector_decision": decision,
+        # 여기부터 구조안에 없는 것: 원본·재검·도장 후 사진, 지적별 조치·재검 기록, Hold Point 승인자·시각, 같은 자리 결과
+        "photos": [{"photo_id": p["id"], "kind": p["kind"], "src": p["src"], "origin": p["origin"], "at": p["ts"]}
+                   for p in q("SELECT * FROM photos WHERE zone_id=? ORDER BY id", zid)],
+        **{k: rec[k] for k in ("findings", "hold_points", "recurrences", "rejected_spots")}}
+
+
+@app.get("/api/zones/{zid}/case")
+def api_case(zid: str):
+    """3D 프론트가 받는 Inspection Case JSON. 예시: shared/case.json (Z-04)"""
+    return case(zid)
+
+
 # ---------- 폰 화면 ----------
 
 @app.get("/m")

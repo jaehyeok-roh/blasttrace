@@ -227,6 +227,20 @@ upload(f"/m/findings/{f7}/recheck", S + "painted_fixed.png")
 c.post(f"/findings/{f7}/close")
 assert status("Z-07") == "Release 완료" and bt.one("SELECT hp2 FROM zones WHERE id='Z-07'")["hp2"]
 
+# 프론트 연동 Case JSON: 구조는 고정, 진행에 따라 available과 값만 채워진다
+cs = c.get("/api/zones/Z-07/case").json()
+assert cs["location"] == {"block_id": "B12P", "zone_id": "Z07", "location_id": "B12P-Z07"}
+assert (cs["stage"], cs["case_status"], cs["inspector_decision"]) == ("COATING_INSPECTION", "CLOSED", "PASS")
+assert cs["surface_ai"]["label"] == "RECHECK" and cs["registration"]["status"] == "SUCCESS"
+assert {p["kind"] for p in cs["photos"]} == {"pre", "recheck", "post"} and cs["recurrences"]
+c3 = c.get("/api/zones/Z-06/case").json()  # Close-out(예시 구역): HP1 해제, 도장 차례
+assert (c3["stage"], c3["case_status"], c3["inspector_decision"]) == ("PAINTING", "OPEN", "PASS")
+c19 = c.get("/api/zones/Z-19/case").json()  # 재검사 대기 (예시 구역)
+assert (c19["stage"], c19["case_status"], c19["inspector_decision"]) == ("REINSPECTION", "REINSPECTION", "REPAIR")
+c31 = c.get("/api/zones/Z-31/case").json()
+assert c31["surface_ai"] == {"available": False, "label": None, "score": None} and not c31["registration"]["available"]
+assert c31.keys() == cs.keys() and c.get("/api/zones/Z-99/case").status_code == 404
+
 # 사진 출처: 시연용 예시 사진은 다시 압축돼도 합성, 새로 찍은 사진은 BT_ORIGIN(기본 시편)
 assert {p["origin"] for p in bt.q("SELECT origin FROM photos")} == {"합성"}
 import cv2  # noqa: E402

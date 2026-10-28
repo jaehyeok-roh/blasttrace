@@ -57,24 +57,19 @@ pre.report{white-space:pre-wrap;font:12.5px/1.7 Pretendard,'맑은 고딕',sans-
 .tag{display:inline-flex;align-items:center;border-radius:6px;padding:3px 9px;font-size:12px;font-weight:600;white-space:nowrap}
 textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font:14px Pretendard,'맑은 고딕',sans-serif}
 
-/* 구역 상태 색은 뜻으로 묶는다: 검사원 할 일 = 주황(검토 대기, 재검사 대기), 작업자 할 일 = 빨강(Punch Open, 촬영 불량),
-   기다림 = 회청·옅은 파랑(검사 대기, 조치 완료), 통과 = 옅은 초록(Close-out, HP1) · 진한 초록(Release, HP2). 칸(s-)과 태그(c-) */
-.s-wait{background:#F4F6FA;border:1px solid #D5DAE5;color:#5B6070}
-.s-badimg{background:#FDECEC;border:1px dashed #E9A7A7;color:#B42318}
-.s-review{background:#F97316;color:#fff}
-.s-punch{background:#DC2626;color:#fff}
-.s-fixed{background:#E7ECF8;border:1px solid #9FB2DC;color:#1E3A8A}
-.s-recheck{background:#FED7AA;border:1px solid #F59E0B;color:#9A3412}
-.s-close{background:#E3F4EA;border:1px solid #9CD3B0;color:#146C43}
-.s-release{background:#15803D;color:#fff}
-.c-wait{background:#EEF1F6;color:#5B6070}
-.c-badimg{background:#FDECEC;color:#B42318}
-.c-review{background:#FFE9D5;color:#B4530F}
-.c-punch{background:#FDE3E3;color:#B42318}
-.c-fixed{background:#E7ECF8;color:#1E3A8A}
-.c-recheck{background:#FFEDD5;color:#9A3412}
-.c-close{background:#E3F4EA;color:#146C43}
-.c-release{background:#15803D;color:#fff}
+/* 구역 상태 색은 "누구 차례인가"로 묶는다. 진한 색은 손이 가야 하는 상태에만 쓴다:
+   작업자 차례 = 빨강(Punch Open, 촬영 불량), 검사원 차례 = 주황(검토 대기, 재검사 대기),
+   기다림 = 옅은 파랑(조치 완료), 통과 = 옅은 초록(Close-out, Release는 ✓), 검사 전 = 흰색. 평면도 칸 글자(s-)와 태그(c-) */
+.s-wait{color:#98A2B3}
+.s-badimg,.s-punch,.s-review,.s-recheck{color:#fff}
+.s-fixed{color:#1E40AF}
+.s-close,.s-release{color:#166534}
+.c-wait{background:#F2F4F7;color:#667085}
+.c-badimg,.c-punch{background:#DC2626;color:#fff}
+.c-review,.c-recheck{background:#EA580C;color:#fff}
+.c-fixed{background:#DCE6FB;color:#1E40AF}
+.c-close,.c-release{background:#DFF2E5;color:#166534}
+.c-release::before{content:'✓';margin-right:4px}
 .c-mute{background:var(--soft);color:var(--sub)}
 
 .legend{display:flex;flex-wrap:wrap;gap:6px}
@@ -141,7 +136,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .dwg .tb-b{font-weight:700;fill:var(--ink)}
 .dwg .fwd{fill:none;stroke:var(--ink);stroke-width:1.5}
 .dwg .z{fill:var(--f);stroke:var(--b,none)}
-.dwg .s-badimg .z{stroke-dasharray:5 3}
+.dwg .gut{fill:#EEF1F5}
 .dwg a:hover .z{stroke:var(--ink);stroke-width:2.5}
 .dwg a:focus-visible .z{stroke:var(--blue);stroke-width:3}
 .dwg .lw{pointer-events:none;fill:none;stroke:#2B2F3A;stroke-width:1.2}
@@ -154,19 +149,17 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .dwg .ax .odd{font-weight:400;fill:var(--sub)}
 .dwg .zl{pointer-events:none}
 .dwg .zl text{fill:currentColor;stroke:var(--f);stroke-width:5;paint-order:stroke;stroke-linejoin:round}
-.dwg .zl .id{font-size:14px}
-.dwg .zl .st{font:700 16px Pretendard,'맑은 고딕',sans-serif}
+.dwg .zl .id{font:600 16px Pretendard,'맑은 고딕',sans-serif}
+.dwg .zl .st{font:700 13px Pretendard,'맑은 고딕',sans-serif}
+.dwg .zl .ok{font:700 18px Pretendard,sans-serif;fill:#16A34A}
 .dwg.compact .ax text{font-size:20px}
 .dwg.compact .ax .odd{display:none}
 .dwg.compact .zl .id{font-size:21px;font-weight:600}
-.dwg .s-wait{--f:#F4F6FA;--b:#D5DAE5}
-.dwg .s-badimg{--f:#FDECEC;--b:#E9A7A7}
-.dwg .s-review{--f:#F97316}
-.dwg .s-punch{--f:#DC2626}
-.dwg .s-fixed{--f:#E7ECF8;--b:#9FB2DC}
-.dwg .s-recheck{--f:#FED7AA;--b:#F59E0B}
-.dwg .s-close{--f:#E3F4EA;--b:#9CD3B0}
-.dwg .s-release{--f:#15803D}
+.dwg .s-wait{--f:#fff;--b:#D0D5DD}
+.dwg .s-badimg,.dwg .s-punch{--f:#DC2626}
+.dwg .s-review,.dwg .s-recheck{--f:#EA580C}
+.dwg .s-fixed{--f:#DCE6FB;--b:#9DB4EA}
+.dwg .s-close,.dwg .s-release{--f:#DFF2E5;--b:#9ED5B0}
 /* 홈 블록 분할도: 측면(블록 12 열 강조) + 선저 평면(좌현 P 위 · 우현 S 아래). 파란 칸만 누를 수 있다 */
 .dwg .vt{font:700 12.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--ink)}
 .dwg .thin{stroke-width:.8}
