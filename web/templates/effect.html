@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>효과 분석</b>{% endblock %}
+{% block body %}
+{% set h = r.T %}{% set s = r.saved %}{% set mx = r.per.M0|max %}
+<div class="title">
+ <div><h1>효과 분석</h1><p>구역 1건(186 m², 블록 단계 표면처리 → 도장 → DFT 검사 → 종결)에 드는 사람 시간을 단위공정으로 나눠 계산합니다. 앱에 기록이 쌓이면 그 값으로 다시 계산합니다.</p></div>
+</div>
+
+<div class="panel"><div class="ph"><h2>검사 1건에 드는 시간</h2><span class="note">인·시간, 기본 가정</span></div><div class="pb">
+ <div class="eff-big">
+ {%- for k, name, sub in [('M0', '현행', '수기 일지 · 사무실 재입력'), ('M1', 'BlastTrace', '위치 ID · 현장 기록 연결'), ('M2', 'BlastTrace + AI', 'AI 사전 선별 (가설)')] %}
+  <div class="eff-col {{ k }}"><span class="k">{{ name }}</span>
+   <b>{{ '%.1f' % (h[k] / 60) }}<small>시간</small>{% if k != 'M0' %}<em>−{{ '%.1f' % (r.eta01 if k == 'M1' else r.eta02) }}%</em>{% endif %}</b>
+   <div class="eff-bar"><i style="width:{{ h[k] / h.M0 * 100 }}%"></i></div>
+   <span class="sub">{{ sub }}</span></div>
+ {%- endfor %}
+ </div>
+ <p class="eff-line">가정을 보수적으로 잡으면 −{{ '%.0f' % r.range['보수'] }}%, 낙관적으로 잡으면 −{{ '%.0f' % r.range['낙관'] }}%입니다.
+  사진 찍고 올리고 버튼을 누르는 것처럼 BlastTrace가 새로 만드는 일(구역당 약 {{ r.per.M1[9]|round|int }}분)도 넣어서 계산했습니다.
+  환경 로거(온습도·이슬점 자동 기록)까지 붙이면 {{ '%.1f' % (r.plus.T / 60) }}시간, −{{ '%.0f' % r.plus.eta }}%가 되지만 이 기능은 아직 없습니다.</p>
+</div></div>
+
+{%- set total = ev|map(attribute=1)|sum %}{% set EVC = {'실측': 'meas', '규정·공개 자료': 'pub', '조선소 값 필요': 'yard', '가정': 'assume'} %}
+<div class="panel"><div class="ph"><h2>숫자의 근거</h2><span class="note">계산에 쓰인 값 {{ total }}개</span></div><div class="pb">
+ <div class="ev">{% for k, n in ev if n %}<i class="{{ EVC[k] }}" style="flex:{{ n }}">{{ k }} {{ n }}</i>{% endfor %}</div>
+ <p class="eff-line">{% for k, n in ev %}<span class="evk {{ EVC[k] }}"></span>{{ k }} <b>{{ n }}</b>{{ ' · ' if not loop.last }}{% endfor %}<br>
+  시편 실험과 앱 기록이 쌓일수록 가정 칸이 실측 칸으로 바뀝니다. 조선소 값은 현업 자료를 받으면 바뀝니다.</p>
+</div></div>
+
+{#- 세로축은 줄어든 폭이 보이도록 ymin부터 그린다(합계 막대 아래에 끊김 표시) #}
+{%- set n = wf|length %}{% set slot = 900 / n %}{% set ymin = ((h.M1 - 150) // 100) * 100 %}{% set ymax = h.M0 * 1.04 %}{% set k = 266 / (ymax - ymin) %}
+<div class="panel"><div class="ph"><h2>어디서 줄었나</h2><span class="note">현행 → BlastTrace, 구역 1건 인·분</span></div><div class="pb">
+ <svg class="wf" viewBox="0 0 960 352" role="img" aria-label="공수 폭포: 현행 {{ h.M0|round|int }}분에서 단위공정별로 줄어 BlastTrace {{ h.M1|round|int }}분, 판정은 0분">
+  <line class="base" x1="40" x2="950" y1="300" y2="300"/>
+ {%- for name, s0, e0, kind in wf %}{% set x = 45 + loop.index0 * slot + (slot - 48) / 2 %}{% set lo = ymin if kind.startswith('tot') else [s0, e0]|min %}
+  {%- set y0 = 300 - ([s0, e0]|max - ymin) * k %}{% set hh = [([s0, e0]|max - lo) * k, 2.5]|max %}
+  {%- if kind == 'zero' %}<line class="zero" x1="{{ x - 4 }}" x2="{{ x + 52 }}" y1="{{ y0 }}" y2="{{ y0 }}"/>
+  {%- else %}<rect class="{{ kind }}" x="{{ x }}" y="{{ y0 }}" width="48" height="{{ hh }}" rx="3"/>{% endif %}
+  {%- if kind.startswith('tot') %}<path class="brk" d="M{{ x - 3 }},{{ 288 }} l9,-5 l9,5 l9,-5 l9,5 l9,-5 l9,5"/>{% endif %}
+  <text class="v {{ kind }}" x="{{ x + 24 }}" y="{{ y0 - 8 }}" text-anchor="middle">{% if kind.startswith('tot') %}{{ '{:,}'.format(e0|round|int) }}{% elif kind == 'dn' %}−{{ (s0 - e0)|round|int }}{% elif kind == 'up' %}+{{ (e0 - s0)|round|int }}{% else %}0분{% endif %}</text>
+  <text class="lab {{ 'judge' if name == '판정' }}" x="{{ x + 24 }}" y="322" text-anchor="middle">{{ name }}</text>
+  {%- if not loop.last %}<line class="link" x1="{{ x + 48 }}" x2="{{ x + slot }}" y1="{{ 300 - (e0 - ymin) * k }}" y2="{{ 300 - (e0 - ymin) * k }}"/>{% endif %}
+ {%- endfor %}
+  <text x="40" y="20">세로축은 {{ ymin|int }}분부터 (합계 막대 아래 물결 = 생략)</text>
+  <text class="lab judge" x="{{ 45 + 4 * slot - slot / 2 }}" y="342" text-anchor="middle">판정은 그대로</text>
+ </svg>
+ <p class="eff-line">줄어든 {{ h.M0|round|int - h.M1|round|int }}분은 기록·전사·누락 보완 {{ s['기록']|round|int }}분, 위치 찾기 {{ s['위치']|round|int }}분, 분쟁 {{ s['분쟁']|round|int }}분에서 나오고 <b>판정 시간은 0분</b>입니다.
+  판정은 검사원이 그대로 하고, 근거를 찾고 적고 옮기는 시간만 줄어듭니다. 주황 막대는 앱 입력처럼 새로 생긴 일입니다.</p>
+</div></div>
+
+<div class="panel"><div class="ph"><h2>재블라스팅 위험</h2><span class="note">모의 20,000회</span></div><div class="pb">
+ <p class="eff-line" style="margin:0 0 14px">블라스팅하고 {{ r.used.W_window // 60 }}시간 안에 프라이머를 못 올리면 다시 블라스팅해야 합니다. 검사 대기, 분쟁, 재검이 길어질수록 이 확률이 올라갑니다.</p>
+ <table class="eff-u eff-r">
+ {%- for k, name in [('M0', '현행'), ('M1', 'BlastTrace'), ('M2', 'BlastTrace + AI')] %}
+  <tr class="{{ k }}"><th>{{ name }}</th><td class="bars"><span class="b1" style="width:{{ r.risk[k] }}%"></span></td><td class="mono">{{ '%.0f' % r.risk[k] }}%</td></tr>
+ {%- endfor %}
+ </table>
+</div></div>
+
+<div class="panel"><div class="ph"><h2>앱 기록에서 잰 값</h2><span class="note">시편·현장 사진 기록만 · {{ min_n }}건 이상이면 계산에 씀</span></div><div class="pb">
+ <table class="lt">
+  <tr><th>항목</th><th>앱 기록</th><th>표본</th><th>모델 기본값</th><th></th></tr>
+ {%- for k, m in meas.items() %}
+  <tr><td>{{ m.label }}</td>
+   <td class="mono">{% if m.v is none %}–{% elif k in ('pi1', 'pi2', 'over_w', 'reg_ok', 'trace') %}{{ '%.0f' % (m.v * 100) }}%{% elif k == 'n_punch' %}{{ '%.1f' % m.v }}건{% else %}{{ m.v|round|int }}분{% endif %}</td>
+   <td class="mono">{{ m.n }}</td>
+   <td class="mono">{% if m.model %}{% set d = base[k] %}{{ '%.0f%%' % (d * 100) if k in ('pi1', 'pi2') else ('%g건' % d if k == 'n_punch' else '%g분' % d) }}{% else %}–{% endif %}</td>
+   <td>{% if m.model and m.n >= min_n %}<span class="tag c-close">계산에 씀</span>{% elif m.model %}<span class="tag c-mute">{{ min_n }}건부터</span>{% else %}<span class="tag c-mute">참고</span>{% endif %}</td></tr>
+ {%- endfor %}
+ </table>
+ <p class="eff-line">합성·예시 사진에서 나온 기록은 빼고 셉니다. 시편이나 현장 사진으로 검사를 진행하면 이 표가 채워지고, 위 숫자도 그 값으로 다시 계산됩니다.</p>
+</div></div>
+
+<details class="panel more"><summary class="ph"><h2>모든 값과 출처</h2><span class="note">{{ spec|length }}개 · 펼치기</span></summary><div class="pb">
+ <table class="lt">
+  <tr><th>값</th><th>쓰인 값</th><th>출처</th></tr>
+ {%- for k, label, v, tag in spec %}
+  <tr><td>{{ label }} <span class="note mono">{{ k }}</span></td><td class="mono">{{ '%g' % v }}</td><td><span class="tag {{ 'c-close' if tag.startswith('앱') or tag == '팀 실험' else 'c-mute' }}">{{ tag }}</span></td></tr>
+ {%- endfor %}
+ </table>
+ <p class="eff-line">공수 모델 v2(단위공정 U0~U8 × 역할 5 × 반복 확률)와 같은 식입니다. 규정 = IMO PSPC, NSRP = 미 조선소·해군 공동연구 보고서, KTA = 도장 사양 관행, 조선소 = 현업 값으로 바꿀 것, 팀측정 = 시편 실험으로 잴 것, 가정 = 범위로 보고. 팀 실험 값은 <span class="mono">shared/effect_params.json</span>에 적으면 바로 반영됩니다. DFT 리딩 수 {{ r.n_dft }}는 PSPC Annex 3 식에서 나옵니다.</p>
+</div></details>
+{% endblock %}

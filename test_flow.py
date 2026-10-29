@@ -256,6 +256,25 @@ c.post("/m/Z-15/photo", files={"photo": ("plate.png", flip.tobytes(), "image/png
 assert [bt.one("SELECT origin FROM photos WHERE zone_id=?", z)["origin"] for z in ("Z-14", "Z-15")] == ["합성", "시편"]
 assert "라벨 출처" in c.get("/data").text and "origin" in zipfile.ZipFile(io.BytesIO(c.get("/data/export.zip").content)).read("labels.csv").decode("utf-8-sig")
 
+# 효과 분석: 상우 공수 모델 v2/v2.1과 같은 숫자(기본값), 앱 기록 값은 시편·현장 사진만 센다
+from server import effect  # noqa: E402
+e = effect.report({"tau_app": 0})  # 앱 입력(새로 생긴 일)을 빼면 상우 모델과 같은 값
+assert [round(e["T"][m]) for m in ("M0", "M1", "M2")] == [1134, 853, 809] and round(e["eta01"], 1) == 24.8
+assert [round(e["risk"][m]) for m in ("M0", "M1", "M2")] == [29, 26, 17] and e["n_dft"] == 248
+assert round(e["plus"]["T"]) == 716 and round(e["plus_ai"]["T"]) == 673 and round(e["saved"]["판정"]) == 0
+e = effect.report()  # 기본: 앱 입력 2분 × (홀드포인트 1 + 재검 라운드마다 2명)이 더해진다
+assert round(e["T"]["M1"]) == 856 and round(e["per"]["M1"][9], 1) == 3.3 and e["per"]["M0"][9] == 0
+assert bt.measured()["pi1"]["n"] == 0  # 지금까지 판정한 사진은 전부 합성이라 세지 않는다
+c.post("/m/Z-30/photo", files={"photo": ("plate.png", flip.tobytes(), "image/png")})  # 좌우 뒤집은 사진 = 시편, 도장 전
+p15 = bt.one("SELECT id FROM photos WHERE zone_id='Z-30'")["id"]
+k15 = [r["id"] for r in bt.q("SELECT id FROM candidates WHERE photo_id=?", p15)]
+c.post(f"/review/{p15}", data={"pick": k15, "note": "잔류 녹", "rc": k15, "reason": ["기타"] * len(k15)})
+m15 = bt.measured()
+assert (m15["pi1"]["v"], m15["pi1"]["n"], m15["n_punch"]["v"]) == (1.0, 1, len(k15))
+ep = c.get("/effect").text
+assert "판정 시간은 0분" in ep and "18.9" in ep and "c-close\">계산에 씀" not in ep  # 표본 1건은 아직 기본값을 쓴다
+assert "<svg class=\"wf\"" in ep and "숫자의 근거" in ep and "실측 <b>0</b>" in ep and "앱 입력" in ep
+
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]
 assert bt.overlaps(sq, {"x0": 0.25, "y0": 0.25, "x1": 0.35, "y1": 0.35})

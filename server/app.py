@@ -15,6 +15,7 @@ import json
 import os
 import socket
 import sqlite3
+import statistics
 import uuid
 import zipfile
 from collections import Counter
@@ -33,6 +34,7 @@ from cv.align import align
 from cv.predict import predict
 from llm.report import make_report
 from sensor.spectral import WAVELENGTHS, analyze
+from server import effect
 from server.quality import check_quality
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -843,6 +845,76 @@ def data(request: Request):
     origins = Counter(r["origin"] for r in rows)
     return page(request, "data.html", nav="data", rows=rows[::-1][:12], tiles=tiles, origins=[(k, origins[k]) for k in ORIGINS],
                 reasons=[(k, why[k]) for k in REASONS], most=max(why.values(), default=1))
+
+
+# ---------- 효과 분석: 공수 모델(server/effect.py)에 앱 기록에서 잰 값을 넣어 다시 계산 ----------
+
+REAL = ("시편", "현장")  # 성능은 출처별로 따로 센다: 합성·공개 사진 기록은 효과 계산에 넣지 않는다
+MIN_N = 3  # 앱 기록 값이 이만큼 쌓여야 모델 기본값 대신 쓴다
+
+
+def tmin(ts):
+    """'MM-DD HH:MM'(now() 형식) → 분. 연도가 없어 올해로 본다"""
+    return datetime.strptime(f"{datetime.now().year}-{ts}", "%Y-%m-%d %H:%M").timestamp() / 60
+
+
+def measured():
+    """앱 기록에서 잰 값 {이름: {v, n, label, model}}. model=True면 공수 모델의 같은 이름 변수를 바꾼다"""
+    ph = ",".join("?" * len(REAL))
+    first = q(f"SELECT zone_id, MIN(id) pid, MIN(ts) ts FROM photos WHERE kind='pre' AND reviewed=1 AND origin IN ({ph}) "
+              "GROUP BY zone_id", *REAL)
+    counts = [one("SELECT COUNT(*) n FROM findings WHERE photo_id=?", r["pid"])["n"] for r in first]
+    hit = [c for c in counts if c]
+    rc = q(f"SELECT f.ts, f.reworks, MIN(r.ts) first_rc, COUNT(r.id) n_rc, SUM(r.success) ok FROM findings f "
+           f"JOIN rechecks r ON r.finding_id = f.id JOIN photos p ON p.id = f.photo_id WHERE p.origin IN ({ph}) GROUP BY f.id", *REAL)
+    n_rc = sum(r["n_rc"] for r in rc)
+    hold = []  # 첫 도장 전 사진 → HP1 해제(Close-out)까지 걸린 분. 블라스팅 → 프라이머 착수 경과시간에 가장 가까운 기록
+    for r in first:
+        hp1 = one("SELECT hp1 FROM zones WHERE id=?", r["zone_id"])["hp1"]
+        try:
+            hold.append(tmin(hp1.split(" · ")[-1]) - tmin(r["ts"]))
+        except (AttributeError, ValueError):
+            pass
+    links = q(f"SELECT l.success FROM links l JOIN photos p ON p.id = l.photo_id WHERE p.origin IN ({ph})", *REAL)
+    med = lambda xs: statistics.median(xs) if xs else None
+    W = effect.PARAMS["W_window"]
+    return {
+        "pi1": dict(v=len(hit) / len(first) if first else None, n=len(first), model=True,
+                    label="1차 검사에서 지적이 나온 구역 비율"),
+        "n_punch": dict(v=sum(hit) / len(hit) if hit else None, n=len(hit), model=True, label="지적이 나온 구역의 평균 지적 건수"),
+        "pi2": dict(v=sum(r["reworks"] for r in rc) / n_rc if n_rc else None, n=n_rc, model=True,
+                    label="재검사에서 다시 지적된 비율"),
+        "w_rework": dict(v=med([tmin(r["first_rc"]) - tmin(r["ts"]) for r in rc]), n=len(rc), model=True,
+                         label="지적 확정 → 재검 사진까지 걸린 시간 (분, 중앙값)"),
+        "hold": dict(v=med(hold), n=len(hold), model=False, label="첫 촬영 → HP1 해제까지 걸린 시간 (분, 중앙값)"),
+        "over_w": dict(v=sum(h > W for h in hold) / len(hold) if hold else None, n=len(hold), model=False,
+                       label=f"그 시간이 {W // 60}시간을 넘은 비율 (재블라스팅 위험 실측)"),
+        "reg_ok": dict(v=sum(r["ok"] for r in rc) / n_rc if n_rc else None, n=n_rc, model=False, label="재검사 사진 정합 성공률"),
+        # 원인 추적률 = 근거 보존(설계상 100%) × 도장 후 사진이 도장 전 근거와 이어진 비율
+        "trace": dict(v=sum(r["success"] for r in links) / len(links) if links else None, n=len(links), model=False,
+                      label="하자 원인 추적률 (도장 후 사진이 도장 전 근거와 이어진 비율)"),
+    }
+
+
+@app.get("/effect")
+def effect_page(request: Request):
+    meas, team = measured(), effect.team_values()
+    app_vals = {k: m["v"] for k, m in meas.items() if m["model"] and m["n"] >= MIN_N}
+    r = effect.report({**team, **app_vals})
+    src = {k: f"앱 기록 n={meas[k]['n']}" if k in app_vals else "팀 실험" if k in team else effect.TAG[k] for k in effect.PARAMS}
+    # 숫자의 근거: 계산에 쓰인 값마다 실측 / 규정·공개 자료 / 조선소 값 필요 / 가정(팀측정 전 포함)
+    group = lambda s: "실측" if s.startswith("앱") or s == "팀 실험" else {"규정": "규정·공개 자료", "NSRP": "규정·공개 자료",
+                                                                         "KTA": "규정·공개 자료", "조선소": "조선소 값 필요"}.get(s, "가정")
+    ev = Counter(group(src[k]) for k in effect.PARAMS)
+    # 폭포: 현행 합계 → 단위공정별 증감 → BlastTrace 합계
+    run, wf = r["T"]["M0"], [("현행", 0, r["T"]["M0"], "tot0")]
+    for name, a, b in zip(r["short"], r["per"]["M0"], r["per"]["M1"]):
+        wf.append((name, run, run + b - a, "up" if b - a > 0.5 else "dn" if b - a < -0.5 else "zero"))
+        run += b - a
+    wf.append(("BlastTrace", 0, r["T"]["M1"], "tot1"))
+    return page(request, "effect.html", nav="effect", r=r, meas=meas, min_n=MIN_N, base=effect.PARAMS, wf=wf,
+                ev=[(k, ev[k]) for k in ("실측", "규정·공개 자료", "조선소 값 필요", "가정")],
+                spec=[(k, effect.LABEL[k], r["used"][k], src[k]) for k in effect.PARAMS])
 
 
 @app.get("/data/export.zip")

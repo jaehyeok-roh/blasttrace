@@ -316,3 +316,53 @@ details.more:not([open])>summary{border-bottom:0}
 .msg{background:var(--blue14);color:var(--blue);border-radius:10px;padding:12px 14px;font-weight:600;margin-bottom:12px}
 .zlist a{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line);font-weight:600}
 body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rgba(255,255,255,.85);display:grid;place-items:center;font-size:18px;font-weight:700}
+
+/* 효과 분석: 숫자 하나 + 막대. 회색 = 현행, 파랑 = BlastTrace, 남색 = + AI */
+.eff-big{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.eff-col{display:flex;flex-direction:column;gap:8px}
+.eff-col .k{font-weight:600;font-size:14.5px}
+.eff-col b{font:700 36px/1.1 'JetBrains Mono',Consolas,monospace;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.eff-col b small{font:500 15px Pretendard,'맑은 고딕',sans-serif;color:var(--sub)}
+.eff-col b em{font:700 17px Pretendard,'맑은 고딕',sans-serif;font-style:normal;color:var(--blue);margin-left:6px}
+.eff-col.M2 b em{color:#14234D}
+.eff-bar{height:10px;background:var(--soft);border-radius:5px;overflow:hidden}
+.eff-bar i{display:block;height:100%;background:#9AA5B1;border-radius:5px}
+.eff-col.M1 .eff-bar i{background:var(--blue)}
+.eff-col.M2 .eff-bar i{background:#14234D}
+.eff-line{margin:16px 0 0;font-size:14px;line-height:1.7}
+.eff-u{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+.eff-u th{text-align:left;font-weight:500;width:170px;padding:6px 12px 6px 0;white-space:nowrap}
+.eff-u td{padding:6px 0 6px 12px;white-space:nowrap}
+.eff-u td.bars{width:62%}
+.eff-u .bars span{display:block;height:9px;border-radius:5px}
+.eff-u .b0{background:#D5DAE2}
+.eff-u .b1{background:var(--blue);margin-top:3px}
+.eff-u .d{color:var(--blue);font-weight:700;text-align:right}
+.eff-u .judge th{font-weight:700}
+.eff-u .judge .d{color:var(--ink)}
+.eff-r{margin-top:0}
+.eff-r .b1{height:14px;margin:0}
+.eff-r .M0 .b1{background:#9AA5B1}
+.eff-r .M2 .b1{background:#14234D}
+/* 숫자의 근거 막대 (실측 / 규정·공개 / 조선소 / 가정)와 공수 폭포 */
+.ev{display:flex;gap:3px;height:34px;border-radius:8px;overflow:hidden}
+.ev i{font-style:normal;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;padding:0 12px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .meas,.evk.meas{background:#15803D}
+.ev .pub,.evk.pub{background:var(--blue)}
+.ev .yard,.evk.yard{background:#7C5CC4}
+.ev .assume,.evk.assume{background:#9AA5B1}
+.evk{display:inline-block;width:11px;height:11px;border-radius:3px;margin:0 5px 0 0;vertical-align:-1px}
+.wf{display:block;width:100%;height:auto}
+.wf .base{stroke:#C9CED6;stroke-width:1.2}
+.wf .link{stroke:#B8BEC8;stroke-width:1;stroke-dasharray:3 3}
+.wf .tot0{fill:#9AA5B1}
+.wf .tot1{fill:var(--blue)}
+.wf .dn{fill:#8FA6FF}
+.wf .up{fill:#EA580C}
+.wf line.zero{stroke:var(--ink);stroke-width:3}
+.wf text{font:12.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--sub)}
+.wf .v{font:700 13px 'JetBrains Mono',Consolas,monospace;fill:var(--ink)}
+.wf .v.dn{fill:var(--blue)}
+.wf .v.up{fill:#C2410C}
+.wf .lab.judge{fill:var(--ink);font-weight:700}
+.wf .brk{fill:none;stroke:#fff;stroke-width:4}
