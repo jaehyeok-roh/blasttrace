@@ -275,6 +275,18 @@ ep = c.get("/effect").text
 assert "판정 시간은 0분" in ep and "18.9" in ep and "c-close\">계산에 씀" not in ep  # 표본 1건은 아직 기본값을 쓴다
 assert "<svg class=\"wf\"" in ep and "숫자의 근거" in ep and "실측 <b>0</b>" in ep and "앱 입력" in ep
 
+# 품질 분석: 지도(판정한 기록이 있는 구역만 세고 나머지는 '기록 없음') · 도막 두께 90/10
+assert bt.zone_q("Z-04")[:3:2] == (3, 2) and bt.zone_q("Z-18") is None  # Z-04: 지적 3 · 재발 1 + 반려했던 자리 1
+qp = c.get("/quality?m=nf").text
+assert "품질 분석" in qp and '<a class="qn" href="/zones/Z-18"' in qp and '<b class="mono">Z-04</b> 3건' in qp
+assert "같은 자리 기준" in c.get("/quality?m=rc").text and c.get("/quality?b=B13P").status_code == 404
+dq = c.get("/quality?m=dft").text
+assert "불합격" in dq and '<a class="qbad" href="/zones/Z-04"' in dq and "87.5%" in dq  # 예시: Z-04 보수 전 320 미만 3점 / 24점
+c.post("/quality/dft", data={"text": "Z-04, 341\nz-04, 352\nZ-04 330\nZ-04, 300\nZ-99, 300\n구역,µm"})
+assert [r["um"] for r in bt.q("SELECT um FROM dft WHERE zone_id='Z-04'")] == [341, 352, 330, 300]
+dq = c.get("/quality?m=dft").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 합격, 테두리 없음
+assert "합격" in dq and "불합격" not in dq and '<a class="qbad"' not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
+
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]
 assert bt.overlaps(sq, {"x0": 0.25, "y0": 0.25, "x1": 0.35, "y1": 0.35})

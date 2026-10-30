@@ -12,7 +12,9 @@ DB 안에서는 박스를 0~1 비율로 저장한다. 사진 크기가 달라도
 import csv
 import io
 import json
+import math
 import os
+import re
 import socket
 import sqlite3
 import statistics
@@ -135,6 +137,7 @@ def origin_of(path):
 REASONS = ["그림자·반사", "용접 비드", "마킹·글씨", "먼지·오염", "기타"]
 # '같은 자리' 기준 (화면·보고서·PDF에 같은 문장을 쓴다). 조금만 스쳐도 같은 자리로 세지 않으려고 중심점으로 본다
 SAME_SPOT = "도장 후 결함 박스의 중심이 사진 정합으로 옮긴 도장 전 위치 안에 있으면 같은 자리"
+NDFT = 320  # PSPC 밸러스트 탱크 목표 건조 도막 두께(µm). 90/10: 측정값 90% 이상이 NDFT 이상, 나머지도 0.9 × NDFT 이상
 tpl.env.globals.update(REASONS=REASONS, SAME_SPOT=SAME_SPOT)
 
 
@@ -155,6 +158,7 @@ CREATE TABLE IF NOT EXISTS rechecks(id INTEGER PRIMARY KEY, finding_id INT, phot
   matches INT, success INT, ts TEXT);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, zone_id TEXT, ts TEXT, text TEXT, mock INT DEFAULT 0);
 CREATE TABLE IF NOT EXISTS links(photo_id INTEGER PRIMARY KEY, pre_id INT, homography TEXT, matches INT, success INT);
+CREATE TABLE IF NOT EXISTS dft(id INTEGER PRIMARY KEY, zone_id TEXT, um REAL, ts TEXT, origin TEXT);
 """
 
 
@@ -409,10 +413,16 @@ def record(zid):
 ZONES = ["release", "release", "fixed", "close", "wait", "close", "wait", "close",
          "close", "fixed", "badimg", "recheck", "wait", "wait", "close", "close",
          "close", "punch", "recheck", "wait", "wait", "wait", "wait", "wait"]
+# 도막 두께 예시 측정값(µm, 품질 분석 화면). Z-01·Z-02는 Release된 구역, Z-04는 보수 전 측정이라 320 미만 3점(그중 284는 288 미만)
+MOCK_DFT = {"Z-01": [352, 341, 366, 338, 349, 357, 333, 345], "Z-02": [347, 362, 339, 351, 329, 344, 358, 336],
+            "Z-04": [338, 311, 284, 346, 352, 305, 341, 349]}
 
 
 def seed():
     names = {v: k for k, v in STATUS.items()}
+    for zid, vals in MOCK_DFT.items():
+        for v in vals:
+            run("INSERT INTO dft(zone_id, um, ts, origin) VALUES(?,?,?,'예시')", zid, v, "10-08 15:00" if zid == "Z-04" else "10-01 16:00")
     for i, s in enumerate(ZONES, 1):
         zid = f"Z-{i:02d}"
         run("INSERT INTO zones(id, block, status, mock) VALUES(?,?,?,?)", zid, "B12P", names[s], int(zid != "Z-07"))
@@ -847,6 +857,81 @@ def data(request: Request):
                 reasons=[(k, why[k]) for k in REASONS], most=max(why.values(), default=1))
 
 
+# ---------- 품질 분석: 블록 품질 지도 · 도막 두께 90/10 ----------
+
+QMODES = {"nf": "지적 수", "rw": "재조치", "rc": "같은 자리 재발", "dft": "도막 두께"}
+QUNIT = {"nf": "건", "rw": "회", "rc": "곳"}
+
+
+def zone_q(zid):
+    """(지적, 재조치, 같은 자리 결함). 검사원이 판정한 사진이 없는 구역(색만 있는 예시 구역 포함)은 None = 기록 없음"""
+    if not one("SELECT 1 FROM photos WHERE zone_id=? AND reviewed=1", zid):
+        return None
+    fs = q("SELECT reworks FROM findings WHERE zone_id=?", zid)
+    post = one("SELECT * FROM photos WHERE zone_id=? AND kind='post' AND reviewed=1 ORDER BY id DESC", zid)
+    same = sum(k != "기록 없음" for _, k, _ in spots(post)) if post else 0  # 재발 + 반려했던 자리
+    return len(fs), sum(f["reworks"] or 0 for f in fs), same
+
+
+@app.get("/quality")
+def quality(request: Request, b: str = "B12P", s: str = "Z", m: str = "nf"):
+    block_or_404(b)
+    surface_or_404(s)
+    m = m if m in QMODES else "nf"
+    zones = q("SELECT * FROM zones WHERE block=? AND id LIKE ? ORDER BY id", b, f"{s}-%")
+    dft = {}
+    for r in q("SELECT d.* FROM dft d JOIN zones z ON z.id = d.zone_id WHERE z.block=? AND z.id LIKE ? ORDER BY d.id", b, f"{s}-%"):
+        dft.setdefault(r["zone_id"], []).append(r)
+    um = [r["um"] for rs in dft.values() for r in rs]
+    LOW = 0.9 * NDFT  # 90/10에서 나머지 10%도 넘어야 하는 값
+    d = um and dict(n=len(um), zones=len(dft), share=sum(v >= NDFT for v in um) / len(um), mn=min(um),
+                    mock=any(r["origin"] == "예시" for rs in dft.values() for r in rs))
+    if d:
+        d["ok"] = d["share"] >= 0.9 and d["mn"] >= LOW
+    qv, dots, top = {}, None, []
+    if m in QUNIT:
+        i, u = list(QUNIT).index(m), QUNIT[m]
+        vals = {z["id"]: zone_q(z["id"]) for z in zones}
+        for k, v in vals.items():
+            qv[k] = ("qn", "", "기록 없음") if v is None else (f"q{min(v[i], 3)}", f"{v[i]}{u}" if v[i] else "", f"{QMODES[m]} {v[i]}{u}")
+        top = sorted(((k, v[i]) for k, v in vals.items() if v and v[i]), key=lambda x: (-x[1], x[0]))[:4]
+        legend = [("q0", "0" + u), ("q1", "1" + u), ("q2", "2" + u), ("q3", f"3{u} 이상"), ("qn", "기록 없음")]
+    else:
+        dots = {}
+        for z in zones:
+            rs = dft.get(z["id"], [])
+            low = sum(r["um"] < LOW for r in rs)
+            qv[z["id"]] = (("qbad" if low else "q0") if rs else "qn", "",
+                           f"측정 {len(rs)}점 · {int(LOW)} µm 미만 {low}점" if rs else "측정 전")
+            cols = math.ceil(math.sqrt(len(rs) * 2)) if rs else 1  # 칸 아래쪽에 가로로 긴 격자로 늘어놓는다
+            rows = math.ceil(len(rs) / cols) if rs else 1
+            dots[z["id"]] = [((j % cols + 0.5) / cols, (j // cols + 0.5) / rows,
+                              "d-ok" if r["um"] >= NDFT else "d-lo" if r["um"] >= LOW else "d-bad",
+                              f"{z['id']} · {j + 1}번 · {r['um']:g} µm · {r['origin']}") for j, r in enumerate(rs)]
+        legend = [("qbad", f"{int(LOW)} µm 미만 있음"), ("qn", "측정 전"), ("d-ok", f"{NDFT} µm 이상"),
+                  ("d-lo", f"{int(LOW)}~{NDFT} µm (10%까지 허용)"), ("d-bad", f"{int(LOW)} µm 미만")]
+    return page(request, "quality.html", nav="quality", b=b, s=s, m=m, MODES=QMODES, zones=zones, qv=qv, dots=dots,
+                legend=legend, top=top, d=d, NDFT=NDFT)
+
+
+@app.post("/quality/dft")
+def quality_dft(b: str = "B12P", s: str = "Z", text: str = Form(""), file: UploadFile | None = File(None)):
+    """도막 두께 게이지 값. 한 줄에 '구역, µm' (게이지 CSV도 같은 모양이면 그대로). 같은 구역을 다시 넣으면 새 값으로 바꾼다"""
+    if file and file.filename:
+        text += "\n" + file.file.read().decode("utf-8-sig", "ignore")
+    got = {}
+    for zid, v in re.findall(r"\b([A-Za-z]-\d{2})\s*[,;\t ]\s*(\d+(?:\.\d+)?)", text):
+        zid = zid.upper()
+        if 0 < float(v) < 3000 and one("SELECT 1 FROM zones WHERE id=?", zid):
+            got.setdefault(zid, []).append(float(v))
+    for zid, vals in got.items():
+        run("DELETE FROM dft WHERE zone_id=?", zid)
+        for v in vals:
+            run("INSERT INTO dft(zone_id, um, ts, origin) VALUES(?,?,?,'게이지')", zid, v, now())
+        log(zid, f"도막 두께 {len(vals)}점 입력 · {NDFT} µm 미만 {sum(v < NDFT for v in vals)}점")
+    return go(f"/quality?b={b}&s={s}&m=dft")
+
+
 # ---------- 효과 분석: 공수 모델(server/effect.py)에 앱 기록에서 잰 값을 넣어 다시 계산 ----------
 
 REAL = ("시편", "현장")  # 성능은 출처별로 따로 센다: 합성·공개 사진 기록은 효과 계산에 넣지 않는다
@@ -896,11 +981,16 @@ def measured():
     }
 
 
-@app.get("/effect")
-def effect_page(request: Request):
+def effect_now():
+    """효과 모델에 팀 실험 값과 앱 기록 값(표본 MIN_N 이상)을 넣어 계산한다"""
     meas, team = measured(), effect.team_values()
     app_vals = {k: m["v"] for k, m in meas.items() if m["model"] and m["n"] >= MIN_N}
-    r = effect.report({**team, **app_vals})
+    return meas, team, app_vals, effect.report({**team, **app_vals})
+
+
+@app.get("/effect")
+def effect_page(request: Request):
+    meas, team, app_vals, r = effect_now()
     src = {k: f"앱 기록 n={meas[k]['n']}" if k in app_vals else "팀 실험" if k in team else effect.TAG[k] for k in effect.PARAMS}
     # 숫자의 근거: 계산에 쓰인 값마다 실측 / 규정·공개 자료 / 조선소 값 필요 / 가정(팀측정 전 포함)
     group = lambda s: "실측" if s.startswith("앱") or s == "팀 실험" else {"규정": "규정·공개 자료", "NSRP": "규정·공개 자료",

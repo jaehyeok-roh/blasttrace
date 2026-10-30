@@ -10,7 +10,7 @@
 <div class="app">
  <aside class="side">
   <a class="logo" href="/">BlastTrace<i>.</i></a>
-  <nav class="nav"><a href="/" class="{{ 'on' if nav == 'home' }}">검사 현황</a><a href="/data" class="{{ 'on' if nav == 'data' }}">판정 데이터</a><a href="/effect" class="{{ 'on' if nav == 'effect' }}">효과 분석</a></nav>
+  <nav class="nav"><a href="/" class="{{ 'on' if nav == 'home' }}">검사 현황</a><a href="/quality" class="{{ 'on' if nav == 'quality' }}">품질 분석</a><a href="/data" class="{{ 'on' if nav == 'data' }}">판정 데이터</a><a href="/effect" class="{{ 'on' if nav == 'effect' }}">효과 분석</a></nav>
   <div class="foot">폰 접속 주소{% for u in phone %}<b class="mono">{{ u }}</b>{% else %}<b>네트워크 없음</b>{% endfor %}
    <form method="post" action="/demo/reset" onsubmit="return confirm('모든 기록과 올린 사진을 지우고 시연 시작 상태로 되돌립니다. 계속할까요?')"><button class="reset">시연 초기화</button></form></div>
  </aside>

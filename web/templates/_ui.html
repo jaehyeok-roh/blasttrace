@@ -180,7 +180,9 @@
 
 {# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 굵은 점선 = 늑판(웹)·거더, 가는 점선 = 론지,
    실선 = 판 외곽·이음. 블록의 일부 구간(CL 쪽 L1~L7, FR0부터 16프레임)만 그린다. 누르면 href + 구역 ID 로 간다. compact = 폰용 #}
-{% macro plan(zones, href='/zones/', compact=False, cur=None) %}
+{#- 품질 분석 화면: qv = {구역: (칸 class, 칸 글자, 툴팁)}로 상태 대신 다른 값으로 칠한다. dots = {구역: [(가로 0~1, 세로 0~1, class, 툴팁)]}
+   (도막 두께 측정점, 칸 아래쪽에 찍는다). legend = [(class, 이름)]로 상태 범례를 바꾼다 #}
+{% macro plan(zones, href='/zones/', compact=False, cur=None, qv=None, dots=None, legend=None) %}
 {% set X0, Y0, CW, CH = 78, 84, 105, 90 %}{% set X1, Y1 = X0 + COLS * CW, Y0 + ROWS * CH %}{% set bid = BLK(zones[0].id) %}{% set fl = bid.endswith('P') %}{% set sk = zones[0].id[0] %}{% set sn, ssub, ax = SURFACES[sk] %}{% set FY = Y0 - (18 if compact else 10) %}
 <svg class="dwg{{ ' compact' if compact }}" viewBox="{{ '36 44 904 318' if compact else '0 0 1000 480' }}" role="img" aria-label="BLK {{ bid }} {{ sn }} · 검사 구역">
  {%- if not compact %}
@@ -194,8 +196,8 @@
  {%- for k in range(4, COLS * 2, 4) %}<line class="web" x1="{{ X0 + k * CW / 2 }}" x2="{{ X0 + k * CW / 2 }}" y1="{{ Y0 - 8 }}" y2="{{ Y1 + 8 }}"/>{% endfor %}
   <line class="web" x1="{{ X0 - 10 }}" x2="{{ X1 + 10 }}" y1="{{ Y0 + CH * 1.5 }}" y2="{{ Y0 + CH * 1.5 }}"/>
  </g>
- {%- for z in zones %}{% set r, c = CELL(z.id) %}
- <a class="s-{{ STATUS[z.status] }}" href="{{ href }}{{ z.id }}"><rect class="z{{ ' cur' if z.id == cur }}" x="{{ X0 + c * CW + 3.5 }}" y="{{ Y0 + r * CH + 3.5 }}" width="{{ CW - 7 }}" height="{{ CH - 7 }}" rx="5"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ z.status }}</title></a>
+ {%- for z in zones %}{% set r, c = CELL(z.id) %}{% set v = qv[z.id] if qv else ('s-' ~ STATUS[z.status], '', z.status) %}
+ <a class="{{ v[0] }}" href="{{ href }}{{ z.id }}"><rect class="z{{ ' cur' if z.id == cur }}" x="{{ X0 + c * CW + 3.5 }}" y="{{ Y0 + r * CH + 3.5 }}" width="{{ CW - 7 }}" height="{{ CH - 7 }}" rx="5"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ v[2] }}</title></a>
  {%- endfor %}
  <g class="ax">
  {%- for k in range(COLS * 2 + 1) %}<text class="{{ 'odd' if k % 2 }}" x="{{ X0 + k * CW / 2 }}" y="{{ FY }}" text-anchor="middle">{{ FR0 + k }}</text>{% endfor %}
@@ -204,21 +206,27 @@
  </g>
  {#- 칸에는 구역 번호만. 손이 가야 하는 칸에만 짧은 말을 붙이고, Release는 ✓. 정확한 상태는 마우스를 올리면 나온다 #}
  {%- set TODO = {'punch': '조치 필요', 'badimg': '재촬영', 'review': '검토', 'recheck': '재검사 확인'} %}
- <g class="zl">{% for z in zones %}{% set r, c = CELL(z.id) %}{% set k = STATUS[z.status] %}{% set cx, cy = X0 + (c + 0.5) * CW, Y0 + (r + 0.5) * CH %}<g class="s-{{ k }}">
+ <g class="zl">{% for z in zones %}{% set r, c = CELL(z.id) %}{% set k = STATUS[z.status] %}{% set cx, cy = X0 + (c + 0.5) * CW, Y0 + (r + 0.5) * CH %}<g class="{{ qv[z.id][0] if qv else 's-' ~ k }}">
   {%- if compact %}<text class="id" x="{{ cx }}" y="{{ cy + 8 }}" text-anchor="middle">{{ z.id }}</text>
+  {%- elif dots is not none %}<text class="id" x="{{ cx }}" y="{{ Y0 + r * CH + 27 }}" text-anchor="middle">{{ z.id }}</text>
+  {%- elif qv %}{% set lab = qv[z.id][1] %}<text class="id" x="{{ cx }}" y="{{ cy - 4 if lab else cy + 6 }}" text-anchor="middle">{{ z.id }}</text>
+   {%- if lab %}<text class="st" x="{{ cx }}" y="{{ cy + 20 }}" text-anchor="middle">{{ lab }}</text>{% endif %}
   {%- else %}<text class="id" x="{{ cx }}" y="{{ cy - 4 if k in TODO else cy + 6 }}" text-anchor="middle">{{ z.id }}</text>
    {%- if k in TODO %}<text class="st" x="{{ cx }}" y="{{ cy + 20 }}" text-anchor="middle">{{ TODO[k] }}</text>{% endif %}
    {%- if k == 'release' %}<text class="ok" x="{{ X0 + (c + 1) * CW - 18 }}" y="{{ Y0 + r * CH + 24 }}" text-anchor="middle">✓</text>{% endif %}{% endif %}</g>
  {%- endfor %}</g>
+ {%- if dots %}<g class="dots">{% for zid, ds in dots.items() %}{% set r, c = CELL(zid) %}{% for fx, fy, k, t in ds %}
+  <circle class="{{ k }}" cx="{{ X0 + c * CW + 14 + fx * (CW - 28) }}" cy="{{ Y0 + r * CH + 38 + fy * (CH - 50) }}" r="5.5"><title>{{ t }}</title></circle>{% endfor %}{% endfor %}</g>{% endif %}
  {%- if not compact %}
  <path class="dim" d="M{{ X0 }},{{ Y1 + 6 }} V{{ Y1 + 36 }} M{{ X1 }},{{ Y1 + 6 }} V{{ Y1 + 36 }} M{{ X0 }},{{ Y1 + 30 }} H{{ X1 }} M{{ X0 - 4 }},{{ Y1 + 34 }} l8,-8 M{{ X1 - 4 }},{{ Y1 + 34 }} l8,-8
    M{{ X1 + 6 }},{{ Y0 }} H{{ X1 + 38 }} M{{ X1 + 6 }},{{ Y1 }} H{{ X1 + 38 }} M{{ X1 + 32 }},{{ Y0 }} V{{ Y1 }} M{{ X1 + 28 }},{{ Y0 + 4 }} l8,-8 M{{ X1 + 28 }},{{ Y1 + 4 }} l8,-8"/>
  <text x="{{ (X0 + X1) / 2 }}" y="{{ Y1 + 25 }}" text-anchor="middle">{{ COLS * 2 }} × 800 = {{ '{:,}'.format(COLS * 2 * 800) }}</text>
  <text x="{{ X1 + 26 }}" y="{{ (Y0 + Y1) / 2 }}" text-anchor="middle" transform="rotate(-90 {{ X1 + 26 }} {{ (Y0 + Y1) / 2 }})">{{ ROWS * 2 }} × 850 = {{ '{:,}'.format(ROWS * 2 * 850) }}</text>
  <g class="lw"><path class="web" d="M24,416 H56"/></g><text class="h2" x="64" y="420">늑판(웹) · 거더</text>
- {%- for k, x, y, label in [('punch', 190, 408, '작업자 차례'), ('review', 380, 408, '검사원 차례'),
-     ('fixed', 24, 434, '재검사 사진 기다림'), ('close', 190, 434, '통과 (✓ = Release)'), ('wait', 380, 434, '검사 전')] %}
- <g class="s-{{ k }}"><rect class="z" x="{{ x }}" y="{{ y }}" width="22" height="16" rx="3"/></g><text class="h2" x="{{ x + 30 }}" y="{{ y + 12 }}">{{ label }}</text>
+ {%- for k, label in legend or [('s-punch', '작업자 차례'), ('s-review', '검사원 차례'), ('s-fixed', '재검사 사진 기다림'),
+     ('s-close', '통과 (✓ = Release)'), ('s-wait', '검사 전')] %}{% set x, y = [(190, 408), (380, 408), (24, 434), (190, 434), (380, 434)][loop.index0] %}
+ {%- if k.startswith('d-') %}<circle class="{{ k }}" cx="{{ x + 11 }}" cy="{{ y + 8 }}" r="5.5"/>
+ {%- else %}<g class="{{ k }}"><rect class="z" x="{{ x }}" y="{{ y }}" width="22" height="16" rx="3"/></g>{% endif %}<text class="h2" x="{{ x + 30 }}" y="{{ y + 12 }}">{{ label }}</text>
  {%- endfor %}
  <g class="tb"><rect x="606" y="402" width="388" height="72"/><path d="M606,420 H994 M606,438 H994 M606,456 H994 M726,402 V474 M880,438 V474"/></g>
  <text class="tb-b" x="616" y="415">BLASTTRACE</text><text x="736" y="415">시연용 예시 · 실제 도면 아님</text>

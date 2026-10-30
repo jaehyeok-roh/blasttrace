@@ -160,6 +160,20 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .dwg .s-review,.dwg .s-recheck{--f:#EA580C}
 .dwg .s-fixed{--f:#DCE6FB;--b:#9DB4EA}
 .dwg .s-close,.dwg .s-release{--f:#DFF2E5;--b:#9ED5B0}
+/* 품질 분석: 개수는 빨강 한 가지 색의 진하기, 흐린 점선 칸 = 기록·측정 없음. 도막 두께는 288 미만 있는 구역 테두리 + 측정점 */
+.dwg .q0{--f:#fff;--b:#D0D5DD;color:#98A2B3}
+.dwg .q1{--f:#FDE3E3;--b:#F5B5B5;color:#991B1B}
+.dwg .q2{--f:#DC2626;color:#fff}
+.dwg .q3{--f:#7F1D1D;color:#fff}
+.dwg .qn{--f:#F7F8FA;--b:#C9CED6;color:#B8BDC6}
+.dwg .qn .z{stroke-dasharray:4 3}
+.dwg .qbad{--f:#FFF1F1;--b:#DC2626;color:#991B1B}
+.dwg .qbad .z{stroke-width:2.5}
+.dwg circle.d-ok{fill:#1F4FFF}
+.dwg circle.d-lo{fill:#EA580C}
+.dwg circle.d-bad{fill:#DC2626}
+.dwg .dots circle{stroke:#fff;stroke-width:1.5}
+.dwg .dots circle:hover{stroke:var(--ink);stroke-width:2}
 /* 홈 블록 분할도: 측면(블록 12 열 강조) + 선저 평면(좌현 P 위 · 우현 S 아래). 파란 칸만 누를 수 있다 */
 .dwg .vt{font:700 12.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--ink)}
 .dwg .thin{stroke-width:.8}
@@ -366,3 +380,8 @@ body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rg
 .wf .v.up{fill:#C2410C}
 .wf .lab.judge{fill:var(--ink);font-weight:700}
 .wf .brk{fill:none;stroke:#fff;stroke-width:4}
+
+/* 품질 분석: 지도 기준 고르기 */
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg a{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--sub);border:1px solid var(--line)}
+.seg a.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}

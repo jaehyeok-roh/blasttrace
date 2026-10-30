@@ -1,0 +1,41 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>BLK {{ b }}</b> / {{ SURFACES[s][0] }} / 품질 분석{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>품질 분석 · BLK {{ b }} <span class="sub" style="font-size:18px">{{ BLOCKS[b] }} 선저 · {{ SURFACES[s][0] }}</span></h1><p>검사 기록으로 블록 품질을 봅니다. 폰과 노트북에서 기록이 쌓이면 바로 다시 계산합니다.</p></div>
+</div>
+
+<div class="panel"><div class="ph"><h2>블록 품질 지도</h2>
+ <nav class="seg">{% for k, name in MODES.items() %}<a class="{{ 'on' if k == m }}" href="?b={{ b }}&s={{ s }}&m={{ k }}">{{ name }}</a>{% endfor %}</nav></div>
+ <div class="pb">{{ ui.plan(zones, qv=qv, dots=dots, legend=legend) }}
+ <p class="eff-line">
+ {%- if m == 'dft' %}점에 마우스를 올리면 측정값이 나옵니다. 빨간 테두리는 {{ (0.9 * NDFT)|int }} µm 미만(90/10에서 허용되지 않는 값)이 있는 구역입니다.
+ {%- elif top %}{{ {'nf': '지적이 많은 곳', 'rw': '재조치가 반복된 곳', 'rc': '도장 후 결함이 도장 전 지적·반려 자리와 겹친 곳'}[m] }}:
+  {% for zid, v in top %}<b class="mono">{{ zid }}</b> {{ v }}{{ {'nf': '건', 'rw': '회', 'rc': '곳'}[m] }}{{ ' · ' if not loop.last }}{% endfor %}.
+  {{ {'nf': '같은 작업자·장비·시간대였는지 볼 곳입니다.', 'rw': '조치 방법이나 판정 기준을 다시 볼 곳입니다.', 'rc': '도장 전 판단이나 표면처리를 되짚을 곳입니다.'}[m] }}
+ {%- else %}해당하는 구역이 없습니다.{% endif %}
+ {%- if m != 'dft' %}<br>검사원이 판정한 기록이 있는 구역만 셉니다. 흐린 칸은 아직 기록이 없는 구역이고, 검사가 진행되면 채워집니다.{% endif %}
+ {%- if m == 'rc' %}<br>같은 자리 기준: {{ SAME_SPOT }}.{% endif %}</p>
+ </div></div>
+
+<div class="panel"><div class="ph"><h2>도막 두께 · 90/10 판정</h2><span class="note">목표 {{ NDFT }} µm (PSPC)</span></div><div class="pb">
+ <div class="cols" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+  <div>
+  {%- if d %}
+   <div class="legend" style="margin-bottom:10px">
+    <span class="tag {{ 'c-close' if d.share >= 0.9 else 'c-punch' }}">{{ NDFT }} µm 이상 {{ '%.1f' % (d.share * 100) }}% (기준 90%)</span>
+    <span class="tag {{ 'c-close' if d.mn >= 0.9 * NDFT else 'c-punch' }}">최소 {{ '%g' % d.mn }} µm (기준 {{ (0.9 * NDFT)|int }})</span>
+    <span class="tag {{ 'c-close' if d.ok else 'c-punch' }}">{{ '합격' if d.ok else '불합격 · 보수 후 재측정' }}</span></div>
+   <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.{% if m != 'dft' %} <a href="?b={{ b }}&s={{ s }}&m=dft">지도에서 보기 →</a>{% endif %}</p>
+  {%- else %}<p class="note">아직 측정값이 없습니다.</p>{% endif %}
+   <p class="eff-line">PSPC 90/10: 측정값의 90% 이상이 {{ NDFT }} µm 이상이고, 나머지도 {{ (0.9 * NDFT)|int }} µm 이상이면 합격. 값은 자석식 도막 게이지로 잽니다.</p>
+  </div>
+  <form method="post" action="/quality/dft?b={{ b }}&s={{ s }}" enctype="multipart/form-data">
+   <textarea name="text" rows="4" class="mono" placeholder="Z-07, 335&#10;Z-07, 318&#10;Z-08, 341"></textarea>
+   <div style="display:flex;gap:8px;margin-top:8px"><label class="btn">CSV 파일 고르기<input class="vh" type="file" name="file" accept=".csv,.txt" onchange="this.parentNode.firstChild.textContent=this.files[0].name"></label>
+    <button class="btn pri">넣고 판정</button></div>
+   <p class="note" style="margin:8px 0 0">한 줄에 "구역, 측정값(µm)". 같은 구역을 다시 넣으면 새 값으로 바뀝니다.</p>
+  </form>
+ </div>
+</div></div>
+{% endblock %}
