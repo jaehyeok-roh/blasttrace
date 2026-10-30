@@ -17,9 +17,6 @@ import os
 import re
 import socket
 import sqlite3
-
-import segno
-from markupsafe import Markup
 import statistics
 import uuid
 import zipfile
@@ -29,10 +26,12 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import segno
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from PIL import Image, ImageOps
 
 from cv.align import align
