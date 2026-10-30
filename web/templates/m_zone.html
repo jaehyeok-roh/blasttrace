@@ -22,6 +22,8 @@
 <div class="card"><h2>검사원 확인 중</h2>
  {% if todo %}{{ ui.photo(todo.src, todo_c, origin=todo.origin) }}<p class="note" style="margin:10px 0 0">AI 후보 {{ todo_c|length }}건 · 노트북에서 검사원이 하나씩 지적/반려합니다.</p>
  {% else %}<p class="note">노트북에서 AI 후보를 보고 지적을 확정합니다.</p>{% endif %}</div>
+{% elif z.status == 'Release 완료' %}
+<div class="card"><h2>검사 끝</h2><p class="note" style="margin:0">도장 후 검사까지 끝난 구역입니다. 더 할 일이 없습니다. <a href="/m/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">평면도로 →</a></p></div>
 {% endif %}
 
 {% for f in findings %}

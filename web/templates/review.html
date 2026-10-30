@@ -29,13 +29,14 @@
     <input type="hidden" name="rc" value="{{ c.id }}"><input type="hidden" name="reason" value=""><input type="checkbox" name="pick" value="{{ c.id }}" hidden>
     <div class="dec"><button type="button" class="btn d-pick">지적</button><button type="button" class="btn d-rej">반려</button></div>
     <div class="chips">{% for r in REASONS %}<button type="button" class="chip" data-r="{{ r }}">{{ r }}</button>{% endfor %}</div>
+    <input class="cnote" type="text" name="cnote" placeholder="이 지적의 내용 (비우면 아래 공통 내용)">
     {% elif c.decision == 'accepted' %}<span class="tag c-punch">{{ '직접 추가 · 지적' if c.source == 'manual' else '지적' }}</span>
     {% elif c.decision == 'rejected' %}<span class="tag c-mute">반려 · {{ c.reason }}</span>{% endif %}
    </div>
   </div>
   {%- else %}<p class="note">AI 후보가 없습니다. 놓친 곳이 있으면 사진 위를 끌어 박스로 추가하세요.</p>{% endfor %}
   {% if not p.reviewed %}
-  <p class="note" style="margin:14px 0 6px">지적 내용</p>
+  <p class="note" style="margin:14px 0 6px">지적 내용 <span class="note">(공통 · 카드에 따로 적지 않은 지적에 들어갑니다)</span></p>
   <textarea name="note" rows="2" placeholder="예: 잔류 녹 · 재블라스팅 필요"></textarea>
   <button class="btn pri" id="go" style="width:100%;margin-top:10px"{{ ' disabled' if cands }}>검사원 판정 확정</button>
   <p class="note">후보마다 지적 또는 반려(이유까지)를 골라야 확정됩니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>

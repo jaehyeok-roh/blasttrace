@@ -13,7 +13,8 @@
   <p class="note" style="margin:8px 0 0">{{ BLK(z.id) }} · {{ LOC(z.id) }} · <a href="/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">블록 화면 →</a></p></div>
  <div><h3>지금</h3>{{ ui.tag(z.status) }}
   <div class="now">{{ nxt.text }}</div>{% if nxt.who or nxt.why %}<p class="note" style="margin:0">{{ nxt.who }}{{ ' · ' if nxt.who and nxt.why }}{{ nxt.why }}</p>{% endif %}
-  {% if nxt.href %}<a class="btn blue" style="margin-top:12px" href="{{ nxt.href }}">{{ nxt.button }} →</a>{% endif %}</div>
+  {% if nxt.href %}<a class="btn blue" style="margin-top:12px" href="{{ nxt.href }}">{{ nxt.button }} →</a>
+  {%- elif phone and z.status != 'Release 완료' %}<div class="qr sm">{{ QR(phone[0] ~ '/' ~ z.id) }}<span class="note">폰에서 이 구역 열기</span></div>{% endif %}</div>
  <div><h3>요약</h3><div class="kv">
   <span>지적</span><b>{{ nums.pre }}건 <span class="note">도장 전</span> · {{ nums.post }}건 <span class="note">도장 후</span></b>
   <span>미종결</span><b>{{ nums.open }}건</b>

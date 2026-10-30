@@ -5,7 +5,8 @@
  <div><h1>지적 I-{{ '%02d' % f.id }} · {{ f.zone_id }} <span class="sub mono" style="font-size:15px;font-weight:500">{{ LOC(f.zone_id) }}</span></h1><p>{{ f.note or '내용 미입력' }}</p></div>
  <span><span class="tag c-mute">{{ '도장 후' if p.kind == 'post' else '도장 전' }}</span>{% if f.reworks %} <span class="tag c-punch">재조치 {{ f.reworks }}회</span>{% endif %} {{ ui.tag(FINDING[f.status]) }}</span>
 </div>
-{% if f.status == 'fixed' %}<div class="banner">작업자가 조치 완료를 등록했습니다. 폰에서 재검사 사진을 찍으면 여기에 바로 뜹니다.</div>{% endif %}
+{% if f.status == 'open' %}<div class="banner">작업자 조치 대기 중 · 폰의 지적 카드에서 조치 완료를 등록하면 여기에 바로 뜹니다.</div>
+{% elif f.status == 'fixed' %}<div class="banner">작업자가 조치 완료를 등록했습니다. 폰에서 재검사 사진을 찍으면 여기에 바로 뜹니다.</div>{% endif %}
 <div class="panel">
  <div class="ph"><h2>재검사 · 같은 위치 비교</h2>
   {% if r %}<span class="note mono">{{ r.ts }}</span>{% endif %}</div>

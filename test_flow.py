@@ -32,7 +32,8 @@ for url in ["/", "/blocks/B12P", "/blocks/B12S", "/m", "/m/blocks/B12P", "/m/blo
     assert c.get(url).status_code == 200, url
 # 홈 = 블록 분할도. 데이터가 있는 B12 좌현(P)·우현(S)만 평면도로 들어가고, 나머지 블록은 예시라 404
 home, mhome = c.get("/").text, c.get("/m").text
-assert 'class="s3"' in home and "/static/ship3d.js" in home and 'class="s3 compact"' in mhome  # 3D 선박
+assert 'class="s3"' in home and "/static/ship3d.js" in home and 'class="s3' not in mhome  # 3D 선박은 노트북만 (폰은 현장용, 인터넷 없어도)
+assert 'class="segno"' in home and "최근 구역" not in mhome  # 폰 접속 QR · 시연 전엔 최근 구역 없음
 assert all(f'href="/blocks/{b}"' in home and f'href="/m/blocks/{b}"' in mhome for b in ("B12P", "B12S"))
 assert c.get("/blocks/B13P").status_code == 404 and c.get("/blocks/B12").status_code == 404
 assert 'href="/zones/Z-31"' in c.get("/blocks/B12S").text and 'href="/zones/Z-07"' not in c.get("/blocks/B12S").text
@@ -68,12 +69,15 @@ assert c.post(f"/review/{pid}", data={"pick": cands[:1], "rc": cands, "reason": 
 assert status("Z-07") == "검토 대기"
 assert cands and "confirm(" in c.get(f"/review/{pid}").text  # 아무것도 안 고르면 HP 해제 확인창
 # 고른 후보 = 채택(지적), 안 고른 후보 = 반려 + 이유 -> 판정 라벨
-c.post(f"/review/{pid}", data={"pick": cands[:1], "note": "잔류 녹", "rc": cands,
+c.post(f"/review/{pid}", data={"pick": cands[:1], "note": "잔류 녹", "rc": cands, "cnote": ["용접부 옆 잔류 녹"] + [""] * (len(cands) - 1),
                               "reason": ["기타"] + ["그림자·반사"] * (len(cands) - 1)})
 dec = {r["id"]: (r["decision"], r["reason"]) for r in bt.q("SELECT * FROM candidates WHERE photo_id=?", pid)}
 assert dec[cands[0]] == ("accepted", None) and all(dec[k] == ("rejected", "그림자·반사") for k in cands[1:]), dec
 assert status("Z-07") == "Punch Open"
-fid = bt.one("SELECT id FROM findings WHERE zone_id='Z-07'")["id"]
+f0 = bt.one("SELECT * FROM findings WHERE zone_id='Z-07'")
+fid = f0["id"]
+assert f0["note"] == "용접부 옆 잔류 녹"  # 카드에 따로 적은 내용이 그 지적에 들어간다 (비우면 공통 내용)
+assert f"I-{fid:02d} 조치 후 완료 등록" in c.get("/zones/Z-07").text and "최근 구역 Z-07" in c.get("/m").text
 
 # ④ 조치 (작업자, 사진 없이)
 r = c.post(f"/m/findings/{fid}/action", data={"note": "부분 재블라스팅"})
@@ -229,6 +233,7 @@ c.post(f"/m/findings/{f7}/action", data={"note": "보수 도장"})
 upload(f"/m/findings/{f7}/recheck", S + "painted_fixed.png")
 c.post(f"/findings/{f7}/close")
 assert status("Z-07") == "Release 완료" and bt.one("SELECT hp2 FROM zones WHERE id='Z-07'")["hp2"]
+assert "검사 끝" in c.get("/m/Z-07").text  # 끝난 구역은 폰에 빈 화면 대신 안내
 
 # 프론트 연동 Case JSON: 구조는 고정, 진행에 따라 available과 값만 채워진다
 cs = c.get("/api/zones/Z-07/case").json()

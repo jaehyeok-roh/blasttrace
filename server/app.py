@@ -17,6 +17,9 @@ import os
 import re
 import socket
 import sqlite3
+
+import segno
+from markupsafe import Markup
 import statistics
 import uuid
 import zipfile
@@ -138,7 +141,7 @@ REASONS = ["그림자·반사", "용접 비드", "마킹·글씨", "먼지·오�
 # '같은 자리' 기준 (화면·보고서·PDF에 같은 문장을 쓴다). 조금만 스쳐도 같은 자리로 세지 않으려고 중심점으로 본다
 SAME_SPOT = "도장 후 결함 박스의 중심이 사진 정합으로 옮긴 도장 전 위치 안에 있으면 같은 자리"
 NDFT = 320  # PSPC 밸러스트 탱크 목표 건조 도막 두께(µm). 90/10: 측정값 90% 이상이 NDFT 이상, 나머지도 0.9 × NDFT 이상
-tpl.env.globals.update(REASONS=REASONS, SAME_SPOT=SAME_SPOT)
+tpl.env.globals.update(REASONS=REASONS, SAME_SPOT=SAME_SPOT, QR=lambda t: Markup(qr_svg(t)))
 
 
 def block_or_404(bid):
@@ -368,10 +371,27 @@ def add_spectrum(f, white, sample, source, ts=None):
 
 # ---------- 화면 공통 ----------
 
+def main_ip():
+    """기본 경로로 나가는 IP(와이파이·핫스팟이 같이 있으면 폰이 붙을 쪽). UDP connect는 패킷을 보내지 않아 인터넷 없이도 된다"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
 def phone_urls(request: Request):
-    ips = {a[4][0] for a in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)}
+    """폰 접속 주소. 기본 경로 IP가 맨 앞"""
+    m = main_ip()
+    ips = {a[4][0] for a in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)} | {m} - {None}
     port = request.url.port or 80
-    return [f"http://{ip}:{port}/m" for ip in sorted(ips) if not ip.startswith("127.")]
+    return [f"http://{ip}:{port}/m" for ip in sorted(ips, key=lambda ip: (ip != m, ip)) if not ip.startswith("127.")]
+
+
+def qr_svg(text):
+    """행사장에서 주소를 손으로 치지 않게. 크기는 CSS(.qr svg)로 정한다"""
+    return segno.make(text, error="m").svg_inline(scale=3, border=1, dark="#111111")
 
 
 def page(request, name, **ctx):
@@ -617,13 +637,14 @@ def zone_timeline(z, photo, post, findings, nums):
 def next_step(z, todo, findings, post):
     """지금 누가 무엇을 해야 하나 (구역 화면 '지금' 칸)"""
     st, rc = z["status"], next((f for f in findings if f["status"] == "recheck"), None)
+    ids = lambda s: " · ".join(f"I-{f['id']:02d}" for f in findings if f["status"] == s)  # 어느 지적 차례인지
     table = {
         "검사 대기": ("검사원", f"폰으로 {'도장 후' if post_phase(z) else '도장 전'} 사진 찍기", f"/m/{z['id']}", None),
         "촬영 불량": ("검사원", "반사가 많아 다시 찍기", f"/m/{z['id']}", None),
         "검토 대기": ("검사원", "AI 후보 판정하기", f"/review/{todo['id']}" if todo else None, "AI 후보 보기"),
-        "Punch Open": ("작업자", "지적 부위 조치 후 완료 등록", None, None),
-        "조치 완료": ("검사원", "조치한 부위 재검사 사진 찍기", None, None),
-        "재검사 대기": ("검사원", "전후 비교 후 종결 판정", f"/findings/{rc['id']}" if rc else None, "전후 비교 보기"),
+        "Punch Open": ("작업자", f"{ids('open')} 조치 후 완료 등록", None, None),
+        "조치 완료": ("검사원", f"{ids('fixed')} 재검사 사진 찍기", None, None),
+        "재검사 대기": ("검사원", f"{ids('recheck')} 전후 비교 후 종결 판정", f"/findings/{rc['id']}" if rc else None, "전후 비교 보기"),
         "Close-out": ("도장팀", "도장 착수 가능 · Hold Point 1 해제", None, None) if not post else
                      ("검사원", "도장 후 사진 찍기", None, None),
         "Release 완료": ("", "완료 · 다음 공정 진행 가능", None, None),
@@ -701,9 +722,9 @@ def review(request: Request, pid: int):
 
 @app.post("/review/{pid}")
 def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
-                   rc: list[int] = Form([]), reason: list[str] = Form([]), manual: list[str] = Form([])):
-    """검사원 판정을 라벨로 남긴다: 고른 후보 = 채택(지적), 안 고른 후보 = 반려 + 이유. rc와 reason은 후보 순서대로 짝.
-    manual = AI가 놓쳐 검사원이 사진에 직접 그린 박스 "x0,y0,x1,y1" (0~1 비율). 바로 지적이 된다."""
+                   rc: list[int] = Form([]), reason: list[str] = Form([]), cnote: list[str] = Form([]), manual: list[str] = Form([])):
+    """검사원 판정을 라벨로 남긴다: 고른 후보 = 채택(지적), 안 고른 후보 = 반려 + 이유. rc·reason·cnote는 후보 순서대로 짝.
+    cnote = 그 지적만의 내용 (비우면 공통 note). manual = AI가 놓쳐 검사원이 사진에 직접 그린 박스 "x0,y0,x1,y1" (0~1 비율). 바로 지적이 된다."""
     try:
         boxes = [[min(max(float(v), 0.0), 1.0) for v in m.split(",")] for m in manual]
         if any(len(b) != 4 or b[2] <= b[0] or b[3] <= b[1] for b in boxes):
@@ -716,14 +737,14 @@ def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
     zid = p["zone_id"]
     if p["reviewed"]:
         return go(f"/zones/{zid}")
-    why, rejected = dict(zip(rc, reason)), []
+    why, notes, rejected = dict(zip(rc, reason)), dict(zip(rc, cnote)), []
     if any(c["id"] not in pick and why.get(c["id"]) not in REASONS for c in q("SELECT id FROM candidates WHERE photo_id=?", pid)):
         raise HTTPException(400, "반려한 후보마다 이유를 골라 주세요")
     for c in q("SELECT * FROM candidates WHERE photo_id=?", pid):
         if c["id"] in pick:
             fid = run("INSERT INTO findings(zone_id, photo_id, cand_id, x0, y0, x1, y1, score, status, note, ts) "
                       "VALUES(?,?,?,?,?,?,?,?,'open',?,?)",
-                      zid, pid, c["id"], c["x0"], c["y0"], c["x1"], c["y1"], c["score"], note, now())
+                      zid, pid, c["id"], c["x0"], c["y0"], c["x1"], c["y1"], c["score"], notes.get(c["id"], "").strip() or note, now())
             run("UPDATE candidates SET decision='accepted', decided_at=? WHERE id=?", now(), c["id"])
             log(zid, f"{'도장 후 ' if p['kind'] == 'post' else ''}지적 I-{fid:02d} 확정 → Punch Open")
         else:
@@ -1107,7 +1128,8 @@ def api_case(zid: str):
 
 @app.get("/m")
 def m_home(request: Request):
-    return page(request, "m_home.html", blocks=block_stats())
+    last = one("SELECT zone_id FROM events WHERE mock=0 ORDER BY id DESC")  # 시연 중 드나드는 구역으로 바로
+    return page(request, "m_home.html", blocks=block_stats(), last=last and last["zone_id"])
 
 
 @app.get("/m/blocks/{bid}")
