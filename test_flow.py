@@ -283,7 +283,7 @@ assert "<svg class=\"wf\"" in ep and "숫자의 근거" in ep and "실측 <b>0</
 # 품질 분석: 지도(판정한 기록이 있는 구역만 세고 나머지는 '기록 없음') · 도막 두께 90/10
 assert bt.zone_q("Z-04")[:3:2] == (3, 2) and bt.zone_q("Z-18") is None  # Z-04: 지적 3 · 재발 1 + 반려했던 자리 1
 qh = c.get("/quality").text  # 품질 분석 첫 화면 = 블록 고르기 (블록마다 판정 기록 요약)
-assert all(f'href="/quality/{b}"' in qh for b in ("B12P", "B12S")) and "불합격" in qh
+assert all(f'href="/quality/{b}"' in qh for b in ("B12P", "B12S")) and "90/10 미충족" in qh
 qp = c.get("/quality/B12P?m=nf").text
 assert "품질 분석" in qp and '<a class="qn" href="/zones/Z-18"' in qp and '<b class="mono">Z-04</b> 3건' in qp
 assert "같은 자리 기준" in c.get("/quality/B12P?m=rc").text and c.get("/quality/B13P").status_code == 404
@@ -294,11 +294,11 @@ assert 'href="/blocks/B12S?s=H"' in qs and 'href="/quality/B12S?s=H"' in c.get("
 assert 'href="/blocks/B12P?s=Z">← 전체 평면도' in c.get("/zones/Z-04").text  # 구역 화면 → 그 면 전체 평면도
 assert c.get("/quality/B13P").status_code == 404 and c.get("/quality/B12P?s=X").status_code == 404
 dq = c.get("/quality/B12P?m=dft").text
-assert "불합격" in dq and '<a class="qbad" href="/zones/Z-04"' in dq and "87.5%" in dq  # 예시: Z-04 보수 전 320 미만 3점 / 24점
+assert "90/10 계산 결과 · 미충족" in dq and "최종 판정은 검사원" in dq and '<a class="qbad" href="/zones/Z-04"' in dq and "87.5%" in dq  # 예시: Z-04 보수 전 320 미만 3점 / 24점
 c.post("/quality/dft", data={"text": "Z-04, 341\nz-04, 352\nZ-04 330\nZ-04, 300\nZ-99, 300\n구역,µm"})
 assert [r["um"] for r in bt.q("SELECT um FROM dft WHERE zone_id='Z-04'")] == [341, 352, 330, 300]
-dq = c.get("/quality/B12P?m=dft").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 합격, 테두리 없음
-assert "합격" in dq and "불합격" not in dq and '<a class="qbad"' not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
+dq = c.get("/quality/B12P?m=dft").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 충족, 테두리 없음
+assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and '<a class="qbad"' not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
 
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]

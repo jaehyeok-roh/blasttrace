@@ -900,7 +900,7 @@ def zone_q(zid):
 
 
 def dft_judge(um):
-    """PSPC 90/10: 측정값 90% 이상이 NDFT 이상이고 나머지도 0.9 × NDFT 이상이면 합격. 값이 없으면 None"""
+    """PSPC 90/10: 측정값 90% 이상이 NDFT 이상이고 나머지도 0.9 × NDFT 이상이면 충족(ok). 화면은 계산 결과만, 판정은 검사원. 값이 없으면 None"""
     if not um:
         return None
     share = sum(v >= NDFT for v in um) / len(um)

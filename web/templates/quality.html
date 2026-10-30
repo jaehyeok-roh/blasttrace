@@ -29,15 +29,16 @@
    <div class="legend" style="margin-bottom:10px">
     <span class="tag {{ 'c-close' if d.share >= 0.9 else 'c-punch' }}">{{ NDFT }} µm 이상 {{ '%.1f' % (d.share * 100) }}% (기준 90%)</span>
     <span class="tag {{ 'c-close' if d.mn >= 0.9 * NDFT else 'c-punch' }}">최소 {{ '%g' % d.mn }} µm (기준 {{ (0.9 * NDFT)|int }})</span>
-    <span class="tag {{ 'c-close' if d.ok else 'c-punch' }}">{{ '합격' if d.ok else '불합격 · 보수 후 재측정' }}</span></div>
+    <span class="tag {{ 'c-close' if d.ok else 'c-punch' }}">90/10 계산 결과 · {{ '충족' if d.ok else '미충족' }}</span></div>
+   <p class="eff-line" style="margin:0 0 6px"><b>최종 판정은 검사원</b>이 합니다.{{ '' if d.ok else ' 미달 부위는 보수 후 다시 재서 넣습니다.' }}</p>
    <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.{% if m != 'dft' %} <a href="/quality/{{ b }}?s={{ s }}&m=dft#map">지도에서 보기 →</a>{% endif %}</p>
   {%- else %}<p class="note">아직 측정값이 없습니다.</p>{% endif %}
-   <p class="eff-line">PSPC 90/10: 측정값의 90% 이상이 {{ NDFT }} µm 이상이고, 나머지도 {{ (0.9 * NDFT)|int }} µm 이상이면 합격. 값은 자석식 도막 게이지로 잽니다.</p>
+   <p class="eff-line">PSPC 90/10: 측정값의 90% 이상이 {{ NDFT }} µm 이상이고, 나머지도 {{ (0.9 * NDFT)|int }} µm 이상이면 충족. 화면은 계산만 하고 합격 판정은 검사원이 합니다. 값은 자석식 도막 게이지로 잽니다.</p>
   </div>
   <form method="post" action="/quality/dft?b={{ b }}&s={{ s }}" enctype="multipart/form-data">
    <textarea name="text" rows="4" class="mono" placeholder="Z-07, 335&#10;Z-07, 318&#10;Z-08, 341"></textarea>
    <div style="display:flex;gap:8px;margin-top:8px"><label class="btn">CSV 파일 고르기<input class="vh" type="file" name="file" accept=".csv,.txt" onchange="this.parentNode.firstChild.textContent=this.files[0].name"></label>
-    <button class="btn pri">넣고 판정</button></div>
+    <button class="btn pri">넣고 계산</button></div>
    <p class="note" style="margin:8px 0 0">한 줄에 "구역, 측정값(µm)". 같은 구역을 다시 넣으면 새 값으로 바뀝니다.</p>
   </form>
  </div>
