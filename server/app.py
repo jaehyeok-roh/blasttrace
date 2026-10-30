@@ -437,11 +437,15 @@ MOCK_DFT = {"Z-01": [352, 341, 366, 338, 349, 357, 333, 345], "Z-02": [347, 362,
             "Z-04": [338, 311, 284, 346, 352, 305, 341, 349]}
 
 
-def seed():
-    names = {v: k for k, v in STATUS.items()}
+def seed_dft():
     for zid, vals in MOCK_DFT.items():
         for v in vals:
             run("INSERT INTO dft(zone_id, um, ts, origin) VALUES(?,?,?,'예시')", zid, v, "10-08 15:00" if zid == "Z-04" else "10-01 16:00")
+
+
+def seed():
+    names = {v: k for k, v in STATUS.items()}
+    seed_dft()
     for i, s in enumerate(ZONES, 1):
         zid = f"Z-{i:02d}"
         run("INSERT INTO zones(id, block, status, mock) VALUES(?,?,?,?)", zid, "B12P", names[s], int(zid != "Z-07"))
@@ -539,6 +543,8 @@ def seed_all():
 
 if not one("SELECT 1 FROM zones"):
     seed_all()
+if not one("SELECT 1 FROM dft"):  # 도막 두께 기능 전에 만든 DB(팀원 data/ 포함)에도 예시 측정값을 넣는다
+    seed_dft()
 
 
 @app.post("/demo/reset")
@@ -893,8 +899,28 @@ def zone_q(zid):
     return len(fs), sum(f["reworks"] or 0 for f in fs), same
 
 
+def dft_judge(um):
+    """PSPC 90/10: 측정값 90% 이상이 NDFT 이상이고 나머지도 0.9 × NDFT 이상이면 합격. 값이 없으면 None"""
+    if not um:
+        return None
+    share = sum(v >= NDFT for v in um) / len(um)
+    return dict(n=len(um), share=share, mn=min(um), ok=share >= 0.9 and min(um) >= 0.9 * NDFT)
+
+
 @app.get("/quality")
-def quality(request: Request, b: str = "B12P", s: str = "Z", m: str = "nf"):
+def quality_home(request: Request):
+    """품질 분석 첫 화면: 검사 현황 홈처럼 도면에서 블록을 고른다. 블록마다 판정 기록에서 센 요약"""
+    out = []
+    for bid, side in BLOCKS.items():
+        v = [x for x in (zone_q(z["id"]) for z in q("SELECT id FROM zones WHERE block=?", bid)) if x]
+        um = [r["um"] for r in q("SELECT d.um FROM dft d JOIN zones z ON z.id = d.zone_id WHERE z.block=?", bid)]
+        out.append(dict(id=bid, side=side, n=len(v), nf=sum(x[0] for x in v), rw=sum(x[1] for x in v),
+                        rc=sum(x[2] for x in v), dft=dft_judge(um)))
+    return page(request, "quality_home.html", nav="quality", blocks=out, NDFT=NDFT)
+
+
+@app.get("/quality/{b}")
+def quality(request: Request, b: str, s: str = "Z", m: str = "nf"):
     block_or_404(b)
     surface_or_404(s)
     m = m if m in QMODES else "nf"
@@ -904,10 +930,9 @@ def quality(request: Request, b: str = "B12P", s: str = "Z", m: str = "nf"):
         dft.setdefault(r["zone_id"], []).append(r)
     um = [r["um"] for rs in dft.values() for r in rs]
     LOW = 0.9 * NDFT  # 90/10에서 나머지 10%도 넘어야 하는 값
-    d = um and dict(n=len(um), zones=len(dft), share=sum(v >= NDFT for v in um) / len(um), mn=min(um),
-                    mock=any(r["origin"] == "예시" for rs in dft.values() for r in rs))
+    d = dft_judge(um)
     if d:
-        d["ok"] = d["share"] >= 0.9 and d["mn"] >= LOW
+        d.update(zones=len(dft), mock=any(r["origin"] == "예시" for rs in dft.values() for r in rs))
     qv, dots, top = {}, None, []
     if m in QUNIT:
         i, u = list(QUNIT).index(m), QUNIT[m]
@@ -931,7 +956,7 @@ def quality(request: Request, b: str = "B12P", s: str = "Z", m: str = "nf"):
         legend = [("qbad", f"{int(LOW)} µm 미만 있음"), ("qn", "측정 전"), ("d-ok", f"{NDFT} µm 이상"),
                   ("d-lo", f"{int(LOW)}~{NDFT} µm (10%까지 허용)"), ("d-bad", f"{int(LOW)} µm 미만")]
     return page(request, "quality.html", nav="quality", b=b, s=s, m=m, MODES=QMODES, zones=zones, qv=qv, dots=dots,
-                legend=legend, top=top, d=d, NDFT=NDFT)
+                legend=legend, top=top, d=d, NDFT=NDFT, surf_n=surface_counts(b))
 
 
 @app.post("/quality/dft")
@@ -949,7 +974,7 @@ def quality_dft(b: str = "B12P", s: str = "Z", text: str = Form(""), file: Uploa
         for v in vals:
             run("INSERT INTO dft(zone_id, um, ts, origin) VALUES(?,?,?,'게이지')", zid, v, now())
         log(zid, f"도막 두께 {len(vals)}점 입력 · {NDFT} µm 미만 {sum(v < NDFT for v in vals)}점")
-    return go(f"/quality?b={b}&s={s}&m=dft")
+    return go(f"/quality/{b}?s={s}&m=dft#map")
 
 
 # ---------- 효과 분석: 공수 모델(server/effect.py)에 앱 기록에서 잰 값을 넣어 다시 계산 ----------

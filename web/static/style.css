@@ -220,7 +220,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 /* 구역 화면: 한눈에(위치 · 지금 · 요약), 이력 한 줄, 지적별 이력 */
 .sum{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1.15fr);gap:22px;align-items:start}
 .sum h3{font-size:12.5px;color:var(--sub);margin:0 0 8px;font-weight:600}
-.now{font-size:19px;font-weight:700;margin:10px 0 4px;letter-spacing:-.01em}
+.sum .now{font-size:19px;font-weight:700;margin:10px 0 4px;letter-spacing:-.01em}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13.5px;align-items:center}
 .kv>span{color:var(--sub)}
 .kv b{font-weight:600}
@@ -253,6 +253,7 @@ details.more:not([open])>summary{border-bottom:0}
 .secwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:center}
 .sec{max-width:430px;justify-self:center}
 .sec .other{fill:rgba(31,79,255,.05)}
+.sec a:hover .other{fill:rgba(31,79,255,.16)}
 .sec .halo{stroke:#fff;stroke-width:5;paint-order:stroke;stroke-linejoin:round}
 .sec .sfa{fill:rgba(31,79,255,.12);cursor:pointer}
 .sec .sfa.on{fill:rgba(31,79,255,.30)}
@@ -395,3 +396,7 @@ body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rg
 .seg{display:flex;gap:4px;flex-wrap:wrap}
 .seg a{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--sub);border:1px solid var(--line)}
 .seg a.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+#map{scroll-margin-top:12px}
+/* 검사 현황 ↔ 품질 분석 (제목 오른쪽) */
+.tside{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.seg.view a{padding:8px 16px;font-size:14px;font-weight:600}

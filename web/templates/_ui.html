@@ -1,5 +1,8 @@
 {% macro tag(s) %}<span class="tag c-{{ STATUS[s] }}">{{ s }}</span>{% endmacro %}
 
+{# 같은 블록·면을 검사 현황 ↔ 품질 분석으로 바꿔 본다. cur = 'home' | 'quality' #}
+{% macro views(bid, s, cur) %}<nav class="seg view" aria-label="보기 바꾸기"><a class="{{ 'on' if cur == 'home' }}" href="/blocks/{{ bid }}?s={{ s }}">검사 현황</a><a class="{{ 'on' if cur == 'quality' }}" href="/quality/{{ bid }}?s={{ s }}">품질 분석</a></nav>{% endmacro %}
+
 {# 다른 기기에서 무언가 바뀌었을 때만 다시 그린다 (2초마다 /api/v 확인). 깜빡이는 주기 새로 고침 대신 쓴다.
    글을 쓰는 중이거나, 사진을 골라 놓았거나, 폰이 카메라를 연 동안(페이지 숨김), 올리는 중에는 미룬다 #}
 {% macro poll(toast=False) %}
@@ -145,8 +148,9 @@
 {# 면 고르기: LNG 운반선 중앙 횡단면 (앞을 볼 때 왼쪽 = 좌현). 팔각형 = 멤브레인 화물창(가운데 종격벽 없음),
    그 바깥 = 밸러스트 탱크(이중저 · 하부 호퍼 · 이중선체 · 상부 날개)와 트렁크 갑판.
    블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 고른다.
-   지금 블록 쪽의 네 면(SURFACES, 구역 ID 첫 글자)을 누를 수 있다. base = 블록 화면 주소, cur = 지금 면, counts = 면별 기록 있는 구역 수 #}
-{% macro section(bid, base, cur, counts={}) %}
+   지금 블록 쪽의 네 면(SURFACES, 구역 ID 첫 글자)을 누를 수 있다. base = 블록 화면 주소, cur = 지금 면, counts = 면별 기록 있는 구역 수,
+   qs = 링크 뒤에 붙일 주소 값(예: 품질 분석의 '&m=nf') #}
+{% macro section(bid, base, cur, counts={}, qs='') %}
 {% set mx, sg = (480, -1) if bid.endswith('S') else (0, 1) %}
 {% set other = bid[:-1] ~ ('P' if bid.endswith('S') else 'S') %}
 {% set REG = 'M240,245 L125,245 L95,215 L60,215 L60,255 Q60,280 85,280 L240,280 Z' %}
@@ -154,8 +158,8 @@
 {% set MARK = {'Z': (172, 265), 'H': (124, 222), 'D': (180, 233), 'O': (178, 296)} %}
 <div class="secwrap">
 <svg class="dwg sec" viewBox="36 26 408 290" role="img" aria-label="LNG 운반선 중앙 횡단면에서 BLK {{ bid }}의 면 고르기">
- <path class="other" d="{{ REG }}" transform="translate({{ 480 - mx }},0) scale({{ -sg }},1)"/>
- <a href="{{ base }}?s=Z" transform="translate({{ mx }},0) scale({{ sg }},1)"><path class="sfa{{ ' on' if cur == 'Z' }}" d="{{ REG }}"/><title>{{ SURFACES['Z'][0] }}</title></a>
+ <a href="{{ base|replace(bid, other) }}?s={{ cur }}{{ qs }}"><path class="other" d="{{ REG }}" transform="translate({{ 480 - mx }},0) scale({{ -sg }},1)"/><title>{{ other }} ({{ '우현' if other.endswith('S') else '좌현' }})로 바꾸기</title></a>
+ <a href="{{ base }}?s=Z{{ qs }}" transform="translate({{ mx }},0) scale({{ sg }},1)"><path class="sfa{{ ' on' if cur == 'Z' }}" d="{{ REG }}"/><title>{{ SURFACES['Z'][0] }}</title></a>
  <g class="lw">
   <path class="pl" d="M60,58 V255 Q60,280 85,280 H395 Q420,280 420,255 V58 M60,58 H118 L128,44 H352 L362,58 H420"/>
   <path d="M95,215 V112 L130,78 H350 L385,112 V215 L355,245 H125 Z"/>
@@ -163,18 +167,18 @@
   <path class="cl" d="M240,36 V292"/>
  </g>
  <g transform="translate({{ mx }},0) scale({{ sg }},1)">
- {%- for k, d in LINES.items() %}<a href="{{ base }}?s={{ k }}"><path class="hit" d="{{ d }}"/><path class="sf{{ ' on' if cur == k }}" d="{{ d }}"/><title>{{ SURFACES[k][0] }}</title></a>{% endfor %}
+ {%- for k, d in LINES.items() %}<a href="{{ base }}?s={{ k }}{{ qs }}"><path class="hit" d="{{ d }}"/><path class="sf{{ ' on' if cur == k }}" d="{{ d }}"/><title>{{ SURFACES[k][0] }}</title></a>{% endfor %}
  </g>
  {%- for k in SURFACES %}{% set x, y = MARK[k] %}
- <a href="{{ base }}?s={{ k }}"><g class="mk{{ ' on' if cur == k }}"><circle cx="{{ mx + sg * x }}" cy="{{ y }}" r="9"/><text x="{{ mx + sg * x }}" y="{{ y }}" text-anchor="middle" dominant-baseline="central">{{ loop.index }}</text></g></a>
+ <a href="{{ base }}?s={{ k }}{{ qs }}"><g class="mk{{ ' on' if cur == k }}"><circle cx="{{ mx + sg * x }}" cy="{{ y }}" r="9"/><text x="{{ mx + sg * x }}" y="{{ y }}" text-anchor="middle" dominant-baseline="central">{{ loop.index }}</text></g></a>
  {%- endfor %}
  <text class="h2" x="60" y="44">좌현 P</text><text class="h2" x="420" y="44" text-anchor="end">우현 S</text>
  <text class="h2 halo" x="240" y="150" text-anchor="middle">No.3 화물창 (멤브레인)</text>
  <text class="h2 halo" x="240" y="166" text-anchor="middle">바깥 = 밸러스트 탱크</text>
  <text class="bk on" x="{{ mx + sg * 100 }}" y="306" text-anchor="middle">{{ bid }}</text>
- <a href="{{ base|replace(bid, other) }}"><text class="bk" x="{{ 480 - mx - sg * 100 }}" y="306" text-anchor="middle">{{ other }} →</text></a>
+ <a href="{{ base|replace(bid, other) }}?s={{ cur }}{{ qs }}"><text class="bk" x="{{ 480 - mx - sg * 100 }}" y="306" text-anchor="middle">{{ other }} →</text></a>
 </svg>
-<div class="surf">{% for k, v in SURFACES.items() %}<a class="sbtn{{ ' on' if k == cur }}" href="{{ base }}?s={{ k }}"><b>{{ loop.index }}</b><span>{{ v[0] }}<small>{{ v[1] }}{% if k in counts %} · 기록 {{ counts[k] }}구역{% endif %}</small></span></a>{% endfor %}</div>
+<div class="surf">{% for k, v in SURFACES.items() %}<a class="sbtn{{ ' on' if k == cur }}" href="{{ base }}?s={{ k }}{{ qs }}"><b>{{ loop.index }}</b><span>{{ v[0] }}<small>{{ v[1] }}{% if k in counts %} · 기록 {{ counts[k] }}구역{% endif %}</small></span></a>{% endfor %}</div>
 </div>
 {% endmacro %}
 

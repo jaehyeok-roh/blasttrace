@@ -1,0 +1,21 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block crumb %}<b>{{ SHIP }}</b> / 품질 분석{% endblock %}
+{% block body %}
+<div class="title">
+ <div><h1>품질 분석 · 블록 선택</h1><p>도면에서 블록을 누르고, 다음 화면에서 면을 고르면 그 면의 품질 지도를 봅니다. 숫자는 검사원이 판정한 기록에서만 셉니다.</p></div>
+</div>
+<div class="panel"><div class="ph"><h2>블록 분할도 (도면)</h2><span class="note">위 = 측면 · 아래 = 선저 평면 (위쪽이 좌현) · 파란 블록을 누르세요</span></div>
+ <div class="pb">{{ ui.ship('/quality/') }}</div></div>
+<div class="cols" style="grid-template-columns:1fr 1fr">
+ {%- for b in blocks %}
+ <div class="panel"><div class="ph"><h2>BLK {{ b.id }} <span class="note">{{ b.side }} 선저</span></h2><span class="note">기록 있는 구역 {{ b.n }}개</span></div><div class="pb">
+  <div class="kv" style="margin-bottom:14px">
+   <span>지적</span><b>{{ b.nf }}건</b>
+   <span>재조치</span><b>{{ b.rw }}회</b>
+   <span>같은 자리 재발</span><b>{{ b.rc }}곳</b>
+   <span>도막 두께</span><b>{% if b.dft %}<span class="tag {{ 'c-close' if b.dft.ok else 'c-punch' }}">{{ '합격' if b.dft.ok else '불합격' }}</span> 측정 {{ b.dft.n }}점 · {{ NDFT }} µm 이상 {{ '%.0f' % (b.dft.share * 100) }}%{% else %}<span class="note">측정 전</span>{% endif %}</b>
+  </div>
+  <a class="btn blue" style="width:100%" href="/quality/{{ b.id }}">품질 지도 열기 →</a></div></div>
+ {%- endfor %}
+</div>
+{% endblock %}

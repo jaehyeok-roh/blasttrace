@@ -1,12 +1,16 @@
 {% extends 'base.html' %}{% import '_ui.html' as ui %}
-{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>BLK {{ b }}</b> / {{ SURFACES[s][0] }} / 품질 분석{% endblock %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <a href="/quality">품질 분석</a> / <b>BLK {{ b }}</b> / {{ SURFACES[s][0] }}{% endblock %}
 {% block body %}
 <div class="title">
  <div><h1>품질 분석 · BLK {{ b }} <span class="sub" style="font-size:18px">{{ BLOCKS[b] }} 선저 · {{ SURFACES[s][0] }}</span></h1><p>검사 기록으로 블록 품질을 봅니다. 폰과 노트북에서 기록이 쌓이면 바로 다시 계산합니다.</p></div>
+ <div class="tside">{{ ui.views(b, s, 'quality') }}</div>
 </div>
 
-<div class="panel"><div class="ph"><h2>블록 품질 지도</h2>
- <nav class="seg">{% for k, name in MODES.items() %}<a class="{{ 'on' if k == m }}" href="?b={{ b }}&s={{ s }}&m={{ k }}">{{ name }}</a>{% endfor %}</nav></div>
+<div class="panel"><div class="ph"><h2>면 고르기 · 중앙 횡단면</h2><span class="note">면을 누르세요 · 단면의 반대쪽(흐린 칸)을 누르면 {{ '우현' if b.endswith('P') else '좌현' }} 블록으로 바뀝니다</span></div>
+ <div class="pb">{{ ui.section(b, '/quality/' ~ b, s, surf_n, '&m=' ~ m) }}</div></div>
+
+<div class="panel" id="map"><div class="ph"><h2>블록 품질 지도 · BLK {{ b }} · {{ SURFACES[s][0] }}</h2>
+ <nav class="seg">{% for k, name in MODES.items() %}<a class="{{ 'on' if k == m }}" href="/quality/{{ b }}?s={{ s }}&m={{ k }}#map">{{ name }}</a>{% endfor %}</nav></div>
  <div class="pb">{{ ui.plan(zones, qv=qv, dots=dots, legend=legend) }}
  <p class="eff-line">
  {%- if m == 'dft' %}점에 마우스를 올리면 측정값이 나옵니다. 빨간 테두리는 {{ (0.9 * NDFT)|int }} µm 미만(90/10에서 허용되지 않는 값)이 있는 구역입니다.
@@ -26,7 +30,7 @@
     <span class="tag {{ 'c-close' if d.share >= 0.9 else 'c-punch' }}">{{ NDFT }} µm 이상 {{ '%.1f' % (d.share * 100) }}% (기준 90%)</span>
     <span class="tag {{ 'c-close' if d.mn >= 0.9 * NDFT else 'c-punch' }}">최소 {{ '%g' % d.mn }} µm (기준 {{ (0.9 * NDFT)|int }})</span>
     <span class="tag {{ 'c-close' if d.ok else 'c-punch' }}">{{ '합격' if d.ok else '불합격 · 보수 후 재측정' }}</span></div>
-   <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.{% if m != 'dft' %} <a href="?b={{ b }}&s={{ s }}&m=dft">지도에서 보기 →</a>{% endif %}</p>
+   <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.{% if m != 'dft' %} <a href="/quality/{{ b }}?s={{ s }}&m=dft#map">지도에서 보기 →</a>{% endif %}</p>
   {%- else %}<p class="note">아직 측정값이 없습니다.</p>{% endif %}
    <p class="eff-line">PSPC 90/10: 측정값의 90% 이상이 {{ NDFT }} µm 이상이고, 나머지도 {{ (0.9 * NDFT)|int }} µm 이상이면 합격. 값은 자석식 도막 게이지로 잽니다.</p>
   </div>

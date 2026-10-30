@@ -39,10 +39,10 @@
   {%- if kind.startswith('tot') %}<path class="brk" d="M{{ x - 3 }},{{ 288 }} l9,-5 l9,5 l9,-5 l9,5 l9,-5 l9,5"/>{% endif %}
   <text class="v {{ kind }}" x="{{ x + 24 }}" y="{{ y0 - 8 }}" text-anchor="middle">{% if kind.startswith('tot') %}{{ '{:,}'.format(e0|round|int) }}{% elif kind == 'dn' %}−{{ (s0 - e0)|round|int }}{% elif kind == 'up' %}+{{ (e0 - s0)|round|int }}{% else %}0분{% endif %}</text>
   <text class="lab {{ 'judge' if name == '판정' }}" x="{{ x + 24 }}" y="322" text-anchor="middle">{{ name }}</text>
+  {%- if name == '판정' %}<text class="lab judge" x="{{ x + 24 }}" y="342" text-anchor="middle">판정은 그대로</text>{% endif %}
   {%- if not loop.last %}<line class="link" x1="{{ x + 48 }}" x2="{{ x + slot }}" y1="{{ 300 - (e0 - ymin) * k }}" y2="{{ 300 - (e0 - ymin) * k }}"/>{% endif %}
  {%- endfor %}
   <text x="40" y="20">세로축은 {{ ymin|int }}분부터 (합계 막대 아래 물결 = 생략)</text>
-  <text class="lab judge" x="{{ 45 + 4 * slot - slot / 2 }}" y="342" text-anchor="middle">판정은 그대로</text>
  </svg>
  <p class="eff-line">줄어든 {{ h.M0|round|int - h.M1|round|int }}분은 기록·전사·누락 보완 {{ s['기록']|round|int }}분, 위치 찾기 {{ s['위치']|round|int }}분, 분쟁 {{ s['분쟁']|round|int }}분에서 나오고 <b>판정 시간은 0분</b>입니다.
   판정은 검사원이 그대로 하고, 근거를 찾고 적고 옮기는 시간만 줄어듭니다. 주황 막대는 앱 입력처럼 새로 생긴 일입니다.</p>
