@@ -300,6 +300,11 @@ assert [r["um"] for r in bt.q("SELECT um FROM dft WHERE zone_id='Z-04'")] == [34
 dq = c.get("/quality/B12P?m=dft").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 충족, 테두리 없음
 assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and '<a class="qbad"' not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
 
+# 데이터 선순환: 시뮬레이션은 화면에서만 돌아서 실제 기록을 건드리지 않는다
+n_ev = bt.one("SELECT COUNT(*) n FROM events")["n"]
+lp = c.get("/loop").text
+assert "시뮬레이션" in lp and '"scen"' in lp and "데이터 선순환" in c.get("/").text and bt.one("SELECT COUNT(*) n FROM events")["n"] == n_ev
+
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]
 assert bt.overlaps(sq, {"x0": 0.25, "y0": 0.25, "x1": 0.35, "y1": 0.35})

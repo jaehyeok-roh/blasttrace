@@ -1033,6 +1033,17 @@ def effect_now():
     return meas, team, app_vals, effect.report({**team, **app_vals})
 
 
+# 데이터 선순환 시뮬레이션의 가정. 계산은 화면(loop.html)에서 돌아서 실제 기록은 바뀌지 않는다. 숫자는 실측이 아니다
+LOOP_SIM = dict(weeks=26, zones=400, lag=2, retrain=4, r0=0.70, fp=0.15, accept=0.97, human=0.85, surface=0.30, link=0.78,
+                scen={"보수": dict(rinf=0.80, l0=8000), "기본": dict(rinf=0.90, l0=3000), "낙관": dict(rinf=0.93, l0=1500)})
+
+
+@app.get("/loop")
+def loop_page(request: Request):
+    p = effect.PARAMS
+    return page(request, "loop.html", nav="loop", sim=dict(LOOP_SIM, pi1=p["pi1"], n_punch=p["n_punch"]))
+
+
 @app.get("/effect")
 def effect_page(request: Request):
     meas, team, app_vals, r = effect_now()

@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% block poll %}{% endblock %}{# 시뮬레이션 도중에 다시 그려지면 처음으로 돌아간다 #}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>데이터 선순환</b>{% endblock %}
+{% block body %}
+<div class="title lph">
+ <div><h1>데이터 선순환 <span class="sub" style="font-size:18px">조선소에서 동시에 쓴다면</span></h1></div>
+ <span class="tag c-mute">시뮬레이션 · 실측 아님 · 실제 기록은 바뀌지 않음</span>
+</div>
+
+<div class="panel"><div class="pb lpc">
+ <button class="btn pri" id="play">▶ 시작</button>
+ <button class="btn" id="again">처음부터</button>
+ <label class="lps">동시에 쓰는 검사원 <b id="people-n">120명</b> <span id="rate"></span><input id="people" type="range" min="30" max="120" step="10" value="120"></label>
+ <span class="lpg"><span class="note">효과 가정</span><span class="seg" id="scen">{% for k in ('보수', '기본', '낙관') %}<a href="#" data-v="{{ k }}" class="{{ 'on' if k == '기본' }}">{{ k }}</a>{% endfor %}</span></span>
+ <span class="lpg"><span class="note">속도</span><span class="seg" id="speed"><a href="#" data-v="1" class="on">×1</a><a href="#" data-v="4">×4</a></span></span>
+</div></div>
+
+<div class="lpm">
+<div class="panel"><div class="ph"><h2>데이터가 도는 고리</h2><span class="note" id="week">시작 전</span></div><div class="pb">
+  <svg class="lp" id="ring" viewBox="0 0 540 470" role="img" aria-label="촬영 사진, 판정 라벨, 같은 자리 쌍, 채점된 판단, AI 재학습이 다시 촬영으로 이어지는 고리"></svg>
+  <div class="lpb"><i id="bar"></i></div>
+ </div></div>
+ <div>
+<div class="panel"><div class="ph"><h2>배에 쌓이는 기록</h2><span class="note">칸 하나 = 100구역</span></div><div class="pb">
+   <svg class="lpship" id="ship" viewBox="-4 -4 620 208" role="img" aria-label="배 도면 칸이 검사 진행에 따라 채워지는 그림"></svg>
+   <div class="lpl"><span><i style="background:#E4E8EE"></i>검사 전</span><span><i style="background:#BFD0FB"></i>도장 전 판단</span><span><i style="background:#2A5BFF"></i>도장 후 결과까지</span><span><i class="d"></i>잘못 반려가 되돌아옴</span></div>
+  </div></div>
+<div class="panel"><div class="ph"><h2>지금 일어나는 일</h2></div><div class="pb"><div class="lpf" id="feed"><p class="note">시작을 누르면 검사원·작업자의 기록이 올라옵니다.</p></div></div></div>
+ </div>
+<div class="panel"><div class="ph"><h2>바뀌는 지표</h2><span class="note">라벨링 추가 시간 0분</span></div><div class="pb lpt">
+   <div><span>AI가 먼저 표시한 결함</span><b id="m-r">–</b><svg class="sp" id="s-r" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>재학습이 없으면 {{ '%.0f' % (sim.r0 * 100) }}%</small></div>
+   <div><span>결과로 채점된 판단</span><b id="m-s">0</b><svg class="sp" id="s-s" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>판단과 결과가 이어진 수</small></div>
+   <div><span>되돌아온 잘못된 반려</span><b id="m-b">0</b><svg class="sp" id="s-b" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>반려한 자리의 도장 후 결함</small></div>
+   <div><span>하자 원인 추적률</span><b id="m-t">–</b><svg class="sp" id="s-t" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-t2">도장 전 기록과 이어진 결함</small></div>
+  </div></div>
+</div>
+<p class="note">가정: 검사원 120명이 주 {{ sim.zones }}구역(연 2만) · 지적 나오는 구역 {{ '%.0f' % (sim.pi1 * 100) }}% · 그 구역당 {{ '%g' % sim.n_punch }}건 · 도장 후 결과 {{ sim.lag }}주 뒤 · 사진 연결 {{ '%.0f' % (sim.link * 100) }}% · AI 시작 {{ '%.0f' % (sim.r0 * 100) }}% · {{ sim.retrain }}주마다 재학습. 재학습 효과는 가정이고, 앱 기록이 쌓이면 실제 값으로 바꿉니다.</p>
+
+<script>
+(() => {
+  const P = {{ sim|tojson }}, $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg';
+  const el = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+  const DAY = 350, MAXDAY = P.weeks * 5, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const COLS = 13, ROWS = 4 * 2, CELL = 25;
+  const fmt = v => Math.round(v).toLocaleString('ko-KR');
+  const rnd = n => Math.floor(Math.random() * n);
+
+  // 고리: 칸 다섯 개와 그 사이 화살표. 데이터 알갱이가 화살표를 따라 흐른다
+  const ring = $('ring'), C = [270, 235], R = 170;
+  const at = (deg, r = R) => [C[0] + r * Math.cos(deg * Math.PI / 180), C[1] + r * Math.sin(deg * Math.PI / 180)];
+  const NODES = [['photos', '촬영 사진'], ['labels', '판정 라벨'], ['pairs', '같은 자리 쌍'], ['scored', '채점된 판단'], ['retrains', 'AI 재학습']];
+  const defs = el('defs', {}, ring);
+  el('path', {d: 'M0,0 L10,5 L0,10 z', fill: '#A9AFBA'}, el('marker', {id: 'lp-ah', viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto'}, defs));
+  const arcs = NODES.map((_, i) => {
+    const a = at(-90 + i * 72 + 24), b = at(-90 + (i + 1) * 72 - 24);
+    return el('path', {class: 'arc', d: `M${a[0]},${a[1]} A${R},${R} 0 0 1 ${b[0]},${b[1]}`, 'marker-end': 'url(#lp-ah)'}, ring);
+  });
+  const dotsG = el('g', {}, ring);
+  const nodeEl = {}, numEl = {};
+  NODES.forEach(([k, name], i) => {
+    const [x, y] = at(-90 + i * 72), g = el('g', {class: 'lpn'}, ring);
+    el('rect', {x: x - 66, y: y - 34, width: 132, height: 68, rx: 12}, g);
+    el('text', {class: 'lab', x, y: y - 10, 'text-anchor': 'middle'}, g).textContent = name;
+    numEl[k] = el('text', {class: 'num', x, y: y + 20, 'text-anchor': 'middle'}, g);
+    nodeEl[k] = g;
+  });
+  const cWeek = el('text', {class: 'c1', x: C[0], y: C[1] - 26, 'text-anchor': 'middle'}, ring);
+  const cBig = el('text', {class: 'c2', x: C[0], y: C[1] + 16, 'text-anchor': 'middle'}, ring);
+  el('text', {class: 'c1', x: C[0], y: C[1] + 42, 'text-anchor': 'middle'}, ring).textContent = 'AI가 먼저 표시한 결함';
+
+  // 배 도면
+  const ship = $('ship'), W = COLS * CELL, H = ROWS * CELL;
+  el('path', {class: 'hull', d: `M0,0 H${W + 8} Q${W + 62},${H * .12} ${W + 80},${H / 2} Q${W + 62},${H * .88} ${W + 8},${H} H0 Z`}, ship);
+  const cells = [];
+  for (let i = 0; i < COLS * ROWS; i++) cells.push(el('rect', {x: Math.floor(i / ROWS) * CELL + 1.5, y: i % ROWS * CELL + 1.5, width: CELL - 3, height: CELL - 3, rx: 3, fill: '#E4E8EE'}, ship));
+  const shipDots = el('g', {}, ship);
+
+  let S, playing = false, speed = 1, scen = '기본', people = 120, last = 0, acc = 0, packets = [], carry = 0, finished = false;
+
+  function reset() {
+    S = {day: 0, zones: 0, photos: 0, labels: 0, pairs: 0, scored: 0, back: 0, post: 0, linked: 0, retrains: 0, returned: 0, r: P.r0, q: [], hist: [], feed: 0};
+    carry = 0; finished = false; packets.forEach(p => p.el.remove()); packets = [];
+    cells.forEach(c => c.setAttribute('fill', '#E4E8EE')); shipDots.replaceChildren();
+    $('feed').replaceChildren(); ['r', 's', 'b', 't'].forEach(k => $('s-' + k).replaceChildren());
+    say('시작을 누르면 검사원·작업자의 기록이 올라옵니다.', 'idle');
+    draw();
+  }
+
+  const pois = l => { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= Math.random(); } while (p > L); return k - 1; };
+  const count = (n, p) => { let c = 0; for (let i = 0; i < n; i++) if (Math.random() < p) c++; return c; };
+  const zoneName = () => `B12${'PS'[rnd(2)]} Z-${String(rnd(24) + 1).padStart(2, '0')}`;
+
+  function say(text, cls = '') {
+    const f = $('feed'), p = document.createElement('p');
+    p.className = cls === 'idle' ? 'note' : 'row ' + cls; p.textContent = text;
+    if (cls === 'idle') f.replaceChildren();
+    f.prepend(p);
+    while (f.children.length > 5) f.lastChild.remove();
+  }
+
+  function inspect() {
+    const i = S.zones++, b = P;
+    const d = Math.random() < b.pi1 ? pois(b.n_punch) : 0;
+    const ai = count(d, S.r), fp = pois(b.fp), wrong = count(ai, 1 - b.accept), added = count(d - ai, b.human);
+    const n = ai + fp + added;
+    S.photos++; S.labels += n;
+    S.q.push({day: S.day + P.lag * 5, n, wrong, miss: d - ai - added, i});
+    const who = `검사원 ${rnd(people) + 1}`;
+    if (S.feed++ % 11 === 0) say(n ? `${who} · ${zoneName()} · 지적 ${ai + added - wrong}건 확정${fp ? ', 헛후보 반려' : ''}` : `${who} · ${zoneName()} · 이상 없음`);
+    else if (S.feed % 37 === 0) say(`작업자 ${rnd(people * 2) + 1} · ${zoneName()} · 조치 완료 등록`);
+  }
+
+  function arrive(e) {
+    S.photos++; S.returned++;
+    const ok = Math.random() < P.link, c = cells[Math.floor((S.returned - 1) / 100)];
+    if (c) c.setAttribute('fill', '#2A5BFF');
+    if (ok) { S.pairs++; S.scored += e.n; }
+    const dw = count(e.wrong, P.surface), dm = count(e.miss, P.surface);
+    S.post += dw + dm;
+    if (ok) {
+      S.linked += dw + dm; S.back += dw;
+      for (let k = 0; k < dw; k++) {
+        const cell = Math.floor(e.i / 100);
+        el('circle', {class: 'lpdot', cx: Math.floor(cell / ROWS) * CELL + 5 + Math.random() * (CELL - 10), cy: cell % ROWS * CELL + 5 + Math.random() * (CELL - 10), r: 3.4}, shipDots);
+        say(`${zoneName()} · 도장 전에 반려한 자리에서 도장 후 결함 → 판단 채점`, 'bad');
+      }
+    }
+  }
+
+  function retrain() {
+    const c = P.scen[scen], before = S.r;
+    S.r = P.r0 + (c.rinf - P.r0) * (1 - Math.exp(-S.scored / c.l0));
+    S.retrains++;
+    say(`AI 재학습 ${S.retrains}회 · 채점된 판단 ${fmt(S.scored)}건 사용 · ${(before * 100).toFixed(0)}% → ${(S.r * 100).toFixed(0)}%`, 'good');
+    nodeEl.retrains.classList.add('hot'); setTimeout(() => nodeEl.retrains.classList.remove('hot'), 900 / speed);
+  }
+
+  function step() {
+    S.day++;
+    carry += people / 120 * P.zones / 5;
+    const before = {photos: S.photos, labels: S.labels, pairs: S.pairs, scored: S.scored};
+    for (; carry >= 1; carry--) inspect();
+    while (S.q.length && S.q[0].day <= S.day) arrive(S.q.shift());
+    if (S.day % (P.retrain * 5) === 0) retrain();
+    if (S.day % 5 === 0) S.hist.push({r: S.r, s: S.scored, b: S.back, t: S.post ? S.linked / S.post : 0});
+    if (!still) {
+      if (S.labels > before.labels) spawn(0);
+      if (S.pairs > before.pairs) spawn(1);
+      if (S.scored > before.scored) spawn(2);
+      if (S.day % 2 === 0 && S.scored) spawn(3);
+      if (S.day % 2 === 0 && S.retrains) spawn(4);
+    }
+    if (S.day >= MAXDAY) { playing = false; finished = true; $('play').textContent = '▶ 시작'; say(`26주 끝 · 구역 ${fmt(S.zones)} · 채점된 판단 ${fmt(S.scored)}건`, 'good'); }
+    draw();
+  }
+
+  function spawn(a) {
+    if (packets.length > 60) return;
+    packets.push({a, t: 0, el: el('circle', {class: a === 4 ? 'lppk ai' : 'lppk', r: 4.5}, dotsG)});
+  }
+
+  function line(id, key, max) {
+    const h = S.hist, n = P.weeks;
+    if (!h.length) return;
+    const top = max || Math.max(...h.map(x => x[key]), 1), lo = key === 'r' ? 0.6 : 0;
+    const pts = h.map((x, i) => `${(i + 1) / n * 120},${28 - (x[key] - lo) / (top - lo) * 26}`).join(' ');
+    let p = $(id).firstChild;
+    if (!p) p = el('polyline', {fill: 'none', stroke: '#2A5BFF', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke'}, $(id));
+    p.setAttribute('points', pts);
+  }
+
+  function draw() {
+    NODES.forEach(([k]) => numEl[k].textContent = k === 'retrains' ? S.retrains + '회' : fmt(S[k]));
+    const wk = Math.floor(S.day / 5);
+    cWeek.textContent = S.day ? wk + '주차' : '시작 전';
+    cBig.textContent = (S.r * 100).toFixed(0) + '%';
+    $('week').textContent = S.day ? `${wk}주차 / ${P.weeks}주 · 검사 구역 ${fmt(S.zones)}` : '시작 전';
+    $('bar').style.width = S.day / MAXDAY * 100 + '%';
+    $('m-r').textContent = (S.r * 100).toFixed(0) + '%';
+    $('m-s').textContent = fmt(S.scored);
+    $('m-b').textContent = fmt(S.back);
+    $('m-t').textContent = S.post ? (S.linked / S.post * 100).toFixed(0) + '%' : '–';
+    $('m-t2').textContent = S.post ? `도장 후 결함 ${fmt(S.post)}건 중 ${fmt(S.linked)}건` : '도장 전 기록과 이어진 결함';
+    line('s-r', 'r', 1); line('s-s', 's'); line('s-b', 'b'); line('s-t', 't', 1);
+  }
+
+  function frame() {
+    const ts = performance.now(), dt = last ? Math.min(ts - last, 100) : 0; last = ts;
+    if (playing) { acc += dt * speed; while (acc >= DAY && playing) { acc -= DAY; step(); } }
+    packets = packets.filter(p => {
+      p.t += dt * speed / 900;
+      if (p.t >= 1) { p.el.remove(); return false; }
+      const a = arcs[p.a], q = a.getPointAtLength(p.t * a.getTotalLength());
+      p.el.setAttribute('cx', q.x); p.el.setAttribute('cy', q.y);
+      return true;
+    });
+  }
+
+  $('play').onclick = () => {
+    if (finished) reset();
+    playing = !playing;
+    $('play').textContent = playing ? '❚❚ 일시정지' : '▶ 시작';
+  };
+  $('again').onclick = () => { playing = false; $('play').textContent = '▶ 시작'; reset(); };
+  const setRate = () => { $('people-n').textContent = people + '명'; $('rate').textContent = `· 주 ${Math.round(people / 120 * P.zones)}구역`; };
+  $('people').oninput = e => { people = +e.target.value; setRate(); };
+  const seg = (id, f) => $(id).addEventListener('click', e => {
+    const a = e.target.closest('a'); if (!a) return;
+    e.preventDefault();
+    [...$(id).children].forEach(x => x.classList.toggle('on', x === a));
+    f(a.dataset.v);
+  });
+  seg('scen', v => { scen = v; $('again').click(); });
+  seg('speed', v => speed = +v);
+  // 화면 높이가 달라도 한 화면에 들어오게 본문을 줄인다
+  const main = document.querySelector('.main');
+  const fit = () => {
+    main.style.zoom = 1;
+    const room = innerHeight - main.getBoundingClientRect().top;
+    main.style.zoom = Math.max(.6, Math.min(1, room / main.scrollHeight));
+  };
+  addEventListener('resize', fit); fit();
+  setRate(); reset(); setInterval(frame, 33);  // 탭이 뒤로 가도 멈추지 않게 타이머로 돌린다
+})();
+</script>
+{% endblock %}

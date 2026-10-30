@@ -402,3 +402,43 @@ body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rg
 /* 검사 현황 ↔ 품질 분석 (제목 오른쪽) */
 .tside{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
 .seg.view a{padding:8px 16px;font-size:14px;font-weight:600}
+
+/* 데이터 선순환 시뮬레이션 */
+.lpc{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:6px 14px}
+.lps{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.lps input{width:150px;accent-color:var(--blue)}
+.lpg{display:flex;align-items:center;gap:6px}
+.lpm .panel{margin-bottom:12px}
+.lpm .pb{padding:10px 14px}
+.lpm .ph{padding:10px 14px}
+.lpm{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,.95fr);gap:0 14px;align-items:start}
+.lph{margin-bottom:8px}
+.lph h1{font-size:20px}
+.lpc .btn{height:34px}
+.lp{display:block;width:100%;height:auto}
+.lp .arc{fill:none;stroke:#C2C7D0;stroke-width:2}
+.lpn rect{fill:#fff;stroke:#C9CED6;stroke-width:1.4;transition:fill .25s,stroke .25s}
+.lpn .lab{font:13.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--sub)}
+.lpn .num{font:700 24px 'JetBrains Mono',Consolas,monospace;fill:var(--ink)}
+.lpn.hot rect{fill:#E6EDFF;stroke:var(--blue);stroke-width:3}
+.lp .c1{font:14px Pretendard,'맑은 고딕',sans-serif;fill:var(--sub)}
+.lp .c2{font:800 46px Pretendard,'맑은 고딕',sans-serif;fill:var(--blue)}
+.lppk{fill:var(--blue)}
+.lppk.ai{fill:#16A34A}
+.lpb{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;margin-top:8px}
+.lpb i{display:block;height:100%;width:0;background:var(--blue)}
+.lpship{display:block;width:100%;height:auto}
+.lpship .hull{fill:#F3F5F8;stroke:#667085;stroke-width:1.5}
+.lpdot{fill:#DC2626;stroke:#fff;stroke-width:1}
+.lpl{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:12.5px}
+.lpl i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.lpl i.d{border-radius:50%;background:#DC2626}
+.lpt{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.lpt span{display:block;font-size:12.5px;color:var(--sub)}
+.lpt b{display:block;font:800 26px/1.2 Pretendard,'맑은 고딕',sans-serif}
+.lpt small{display:block;font-size:11.5px;color:var(--sub);line-height:1.3}
+.lpt .sp{display:block;width:100%;height:24px;margin:2px 0}
+.lpf{height:132px;overflow:hidden}
+.lpf .row{display:block;margin:0;padding:4px 0;font-size:12.5px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lpf .row.bad{color:#B91C1C;font-weight:600}
+.lpf .row.good{color:var(--blue);font-weight:600}
