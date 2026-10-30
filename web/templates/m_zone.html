@@ -14,7 +14,7 @@
  {% if post %}<h2>도장 후 촬영</h2>
  <p class="note">도장이 끝난 같은 구역을 찍어주세요. 도장 전 지적 위치를 맞춰 표시합니다.</p>
  {% else %}<h2>도장 전 촬영</h2>
- <p class="note">블라스팅 표면을 찍어주세요. 반사가 심하면 다시 찍도록 안내합니다.</p>{% endif %}
+ <p class="note">블라스팅 표면을 조명(플래시)을 켜고 찍어주세요. 반사가 심하거나 어두우면 다시 찍도록 안내합니다.</p>{% endif %}
  <label class="btn pri big">검사원 · 사진 찍기<input class="vh" type="file" name="photo" accept="image/*" capture="environment" onchange="{{ busy }}"></label>
  <label class="btn big" style="margin-top:8px">사진첩에서 고르기<input class="vh" type="file" name="photo" accept="image/*" onchange="{{ busy }}"></label>
 </form>

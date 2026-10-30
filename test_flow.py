@@ -309,6 +309,12 @@ assert not bt.overlaps(sq, {"x0": 0.38, "y0": 0.38, "x1": 0.6, "y1": 0.6})
 mz = c.get("/m/Z-20").text
 assert "사진첩에서 고르기" in mz and mz.count('name="photo"') == 2
 
+# 조명 부족: 어둡게 만든 사진은 촬영 불량으로 다시 찍게 하고, 원래 짙은 블라스팅 면(before.png)은 통과시킨다
+ok, dim = cv2.imencode(".png", cv2.convertScaleAbs(cv2.imread(S + "before.png"), alpha=0.45))
+c.post("/m/Z-23/photo", files={"photo": ("dim.png", dim.tobytes(), "image/png")})
+assert status("Z-23") == "촬영 불량" and "조명 부족" in c.get("/zones/Z-23").text
+assert all(bt.check_quality(S + n)["ok"] for n in ("before.png", "after.png", "painted.png", "painted_fixed.png"))
+
 # 사진이 아닌 파일은 거절
 r = c.post("/m/Z-21/photo", files={"photo": ("a.txt", b"hello", "text/plain")})
 assert r.status_code == 400

@@ -645,7 +645,7 @@ def next_step(z, todo, findings, post):
     ids = lambda s: " · ".join(f"I-{f['id']:02d}" for f in findings if f["status"] == s)  # 어느 지적 차례인지
     table = {
         "검사 대기": ("검사원", f"폰으로 {'도장 후' if post_phase(z) else '도장 전'} 사진 찍기", f"/m/{z['id']}", None),
-        "촬영 불량": ("검사원", "반사가 많아 다시 찍기", f"/m/{z['id']}", None),
+        "촬영 불량": ("검사원", "반사·어두움 때문에 다시 찍기", f"/m/{z['id']}", None),
         "검토 대기": ("검사원", "AI 후보 판정하기", f"/review/{todo['id']}" if todo else None, "AI 후보 보기"),
         "Punch Open": ("작업자", f"{ids('open')} 조치 후 완료 등록", None, None),
         "조치 완료": ("검사원", f"{ids('fixed')} 재검사 사진 찍기", None, None),
@@ -1194,6 +1194,9 @@ def m_photo(zid: str, photo: UploadFile = File(...)):
         run("INSERT INTO photos(zone_id, kind, src, w, h, glare, blur, ok, ts, origin) VALUES(?,?,?,?,?,?,?,0,?,?)",
             zid, kind, src, w, h, qa["glare"], qa["blur"], now(), origin)
         set_status(zid, "촬영 불량")
+        if qa["dark"]:  # 이상 탐지는 흰 조명 사진으로만 정상을 배웠고, 어두우면 정합도 안 된다
+            log(zid, f"{stage} 촬영 · 조명 부족 → 재촬영 필요")
+            return go(f"/m/{zid}?msg=사진이 너무 어둡습니다. 조명(플래시)을 켜고 다시 찍어주세요")
         log(zid, f"{stage} 촬영 · 반사 {qa['glare']:.1%} → 재촬영 필요")
         return go(f"/m/{zid}?msg=반사가 많습니다({qa['glare']:.1%}). 각도를 바꿔 다시 찍어주세요")
     out = predict(fpath(src))

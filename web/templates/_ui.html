@@ -31,7 +31,7 @@
     const img = Object.assign(document.createElement('img'), {src: t.src, alt: ''});
     const txt = document.createElement('span');
     txt.append(Object.assign(document.createElement('b'), {textContent: t.zone_id + ' · 폰에서 ' + kind + ' 도착'}),
-      Object.assign(document.createElement('small'), {textContent: !t.ok ? '반사가 많아 다시 찍는 중' : t.kind === 'recheck' ? '구역 이력에서 확인 →' : 'AI 후보 확인 →'}));
+      Object.assign(document.createElement('small'), {textContent: !t.ok ? '반사·어두움 때문에 다시 찍는 중' : t.kind === 'recheck' ? '구역 이력에서 확인 →' : 'AI 후보 확인 →'}));
     a.append(img, txt); document.body.append(a); setTimeout(() => a.remove(), 9000);
     document.querySelectorAll('.dwg a[href$="/' + t.zone_id + '"] .z').forEach(r => r.classList.add('flash'));
   }
