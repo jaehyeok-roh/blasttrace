@@ -322,6 +322,8 @@ details.more:not([open])>summary{border-bottom:0}
 .org{position:absolute;bottom:8px;right:8px;font:600 12px/1.7 Pretendard,'맑은 고딕',sans-serif;padding:0 8px;border-radius:4px;background:rgba(17,17,17,.72);color:#fff}
 .org.syn{background:#B4530F}
 .num.at-b{transform:translateY(-100%);border-radius:0 3px 0 0}
+.num .del{margin-left:6px;padding:0 5px;border:0;border-radius:3px;background:rgba(255,255,255,.25);color:#fff;font:700 12px/18px sans-serif;cursor:pointer}
+.num .del:hover{background:#fff;color:#DC2626}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .pair h3{font-size:13px;margin:0 0 8px}
 .spec{margin-top:16px;border-top:1px solid var(--line)}

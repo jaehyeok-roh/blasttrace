@@ -11,8 +11,8 @@
  <div class="panel"><div class="ph"><h2>{{ '도장 후 사진' if p.kind == 'post' else '도장 전 사진' }}</h2><span class="note mono">반사 {{ '%.1f' % (p.glare * 100) }}% · 선명도 {{ p.blur|int }}</span></div>
   <div class="pb{{ ' draw' if not p.reviewed }}">{{ ui.photo(p.src, cands, polys=polys, pcls='red prev', origin=p.origin) }}
   {% if polys %}<p class="note" style="margin:10px 0 0">빨간 점선 = 같은 구역 도장 전 지적 위치</p>{% endif %}
-  {% if not p.reviewed %}<p class="note" style="margin:10px 0 0">AI가 놓친 곳은 사진 위를 <b>끌어서 박스</b>로 직접 추가하세요 · 추가 <b id="manual-n">0</b>건
-   <button type="button" class="btn mini" onclick="clearManual()">지우기</button></p>{% endif %}</div></div>
+  {% if not p.reviewed %}<p class="note" style="margin:10px 0 0">AI가 놓친 곳은 사진 위를 <b>끌어서 박스</b>로 직접 추가하세요. 잘못 그렸으면 번호 옆 <b>✕</b>를 누르면 그 박스만 지워집니다 · 추가 <b id="manual-n">0</b>건
+   <button type="button" class="btn mini" onclick="clearManual()">전부 지우기</button></p>{% endif %}</div></div>
  <div class="panel"><div class="ph"><h2>검사원 판정</h2><span class="note" id="dec-n">{{ '' if p.reviewed else '0 / %d 판정' % cands|length }}</span></div><div class="pb">
   {% for c in cands %}
   {#- 후보 확대: 박스 둘레로 박스 크기의 60%만큼 더 보여 준다 (배경 이미지를 잘라 확대) #}
@@ -74,9 +74,15 @@
   const ph = document.querySelector('.draw .photo'), svg = ph.querySelector('svg'), form = document.querySelector('form.cols');
   const pt = e => { const r = ph.getBoundingClientRect();
     return [Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1), Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1)]; };
-  let start = null, rect = null, n = 0;
+  let start = null, rect = null;
+  const drawn = [];  // 그린 박스마다 [사각형, 폼 입력, 번호표]. 번호는 지운 뒤 다시 매긴다
+  const renum = () => {
+    drawn.forEach((d, i) => d[2].firstChild.textContent = '직접 ' + (i + 1));
+    document.getElementById('manual-n').textContent = drawn.length;
+  };
   const box = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
   ph.addEventListener('pointerdown', e => {
+    if (e.target.closest('.del')) return;  // ✕를 누르면 새 박스를 그리지 않는다
     e.preventDefault(); start = pt(e); ph.setPointerCapture(e.pointerId);
     rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); rect.setAttribute('class', 'box red manual'); svg.appendChild(rect);
   });
@@ -93,11 +99,16 @@
       value: [x0, y0, x1, y1].map(v => v.toFixed(4)).join(',')});
     form.appendChild(inp);
     const up = y0 > 0.13;  // _ui.html photo()와 같은 규칙: 번호는 박스 바깥 위, 맨 위면 아래
-    const tag = Object.assign(document.createElement('span'), {className: 'num red manual' + (up ? ' at-b' : ''), textContent: '직접 ' + (++n)});
+    const tag = Object.assign(document.createElement('span'), {className: 'num red manual' + (up ? ' at-b' : '')});
+    const del = Object.assign(document.createElement('button'), {type: 'button', className: 'del', textContent: '✕', title: '이 박스 지우기'});
+    tag.append(document.createTextNode(''), del);
     Object.assign(tag.style, {left: x0 * 100 + '%', top: (up ? y0 : y1) * 100 + '%'}); ph.appendChild(tag);
-    document.getElementById('manual-n').textContent = n;
+    const item = [rect, inp, tag];
+    drawn.push(item);
+    del.onclick = () => { item.forEach(el => el.remove()); drawn.splice(drawn.indexOf(item), 1); renum(); };
+    renum();
   });
-  window.clearManual = () => { document.querySelectorAll('.manual').forEach(el => el.remove()); n = 0; document.getElementById('manual-n').textContent = 0; };
+  window.clearManual = () => { drawn.splice(0).forEach(d => d.forEach(el => el.remove())); renum(); };
 })();
 </script>{% endif %}
 {% endblock %}
