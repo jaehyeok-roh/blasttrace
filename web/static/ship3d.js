@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const L = 305, B = 45, D = 27, TD = 31, DB = 3;           // 길이, 폭, 갑판, 트렁크 갑판, 이중저 높이
 const BX0 = 54, BL = 21.3;                                 // 블록 07의 선미 끝, 블록 길이 (07~16)
@@ -98,40 +99,251 @@ export function mount(el) {
   scene.add(new THREE.HemisphereLight(0xFFFFFF, 0x8A96AA, 1.2));
   const sun = new THREE.DirectionalLight(0xFFFFFF, 0.9); sun.position.set(120, 260, -140); scene.add(sun);
 
-  scene.add(hull());
-  // 화물창(멤브레인, 팔각형 단면)과 트렁크 갑판 위 돔
-  const w = B / 2 - 3, oct = [[-(w - 4), DB], [w - 4, DB], [w, DB + 4], [w, D - 5], [w - 8, TD - 1], [-(w - 8), TD - 1], [-w, D - 5], [-w, DB + 4]];
-  const tankMat = new THREE.MeshStandardMaterial({ color: 0xBFCBE6, transparent: true, opacity: 0.28, depthWrite: false });
-  const solid = new THREE.MeshStandardMaterial({ color: 0xDFE3EA });
-  TANKS.forEach(([x0, x1, name]) => {
-    const geo = new THREE.ExtrudeGeometry(new THREE.Shape(oct.map(([z, y]) => new THREE.Vector2(z, y))), { depth: x1 - x0, bevelEnabled: false });
-    geo.rotateY(-Math.PI / 2); geo.translate(x1, 0, 0);
-    const t = new THREE.Mesh(geo, tankMat);
-    t.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x5B6B8C, transparent: true, opacity: 0.6 })));
-    scene.add(t);
-    const c = (x0 + x1) / 2;
-    for (const [dx, r] of [[-5, 1.8], [4, 1.3]]) {
-      const dome = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 3, 20), solid); dome.position.set(c + dx, TD + 1.5, 0); scene.add(dome);
+  //scene.add(hull());
+
+  const loader = new GLTFLoader();
+
+  loader.load(
+    '/static/models/lng_ship.glb',
+
+    (gltf) => {
+      const ship = gltf.scene;
+
+      // ------------------------------------------------
+      // 1. LNG GLB 좌표계 → 기존 BlastTrace 좌표계
+      //
+      // GLB : Z축이 선수-선미
+      // 기존 코드 : X축이 선미→선수
+      //
+      // 현재 화면에서 선수 방향이 반대로 보이므로 -90도 사용
+      // ------------------------------------------------
+      ship.rotation.y = -Math.PI / 2;
+
+      ship.updateMatrixWorld(true);
+
+      // ------------------------------------------------
+      // 2. 모델 길이를 기존 L=305m에 맞춤
+      // ------------------------------------------------
+      let bbox = new THREE.Box3().setFromObject(ship);
+
+      const size = bbox.getSize(
+        new THREE.Vector3()
+      );
+
+      const scale = L / size.x;
+
+      ship.scale.setScalar(scale);
+
+      ship.updateMatrixWorld(true);
+
+      // ------------------------------------------------
+      // 3. 모델 중심을 기존 좌표계에 정렬
+      //
+      // X : 0 ~ 305
+      // Y : 선저 = 0
+      // Z : 선박 중심 = 0
+      // ------------------------------------------------
+      bbox = new THREE.Box3().setFromObject(ship);
+
+      const center = bbox.getCenter(
+        new THREE.Vector3()
+      );
+
+      ship.position.x += L / 2 - center.x;
+      ship.position.y += -bbox.min.y;
+      ship.position.z += -center.z;
+
+      ship.updateMatrixWorld(true);
+
+      // ------------------------------------------------
+      // 4. 기존 schematic처럼 선체를 반투명하게
+      //    → 내부 B07~B16 블록이 보이도록
+      // ------------------------------------------------
+      ship.traverse((obj) => {
+
+        if (!obj.isMesh || !obj.material) {
+          return;
+        }
+
+        // GLB material을 직접 수정하지 않고 clone
+        if (Array.isArray(obj.material)) {
+
+          obj.material = obj.material.map(
+            mat => mat.clone()
+          );
+
+          obj.material.forEach((mat) => {
+            mat.transparent = true;
+            // 배의 투명도 조정
+            mat.opacity = 0.25;
+            mat.depthWrite = false;
+            mat.needsUpdate = true;
+          });
+
+        } else {
+
+          obj.material = obj.material.clone();
+
+          obj.material.transparent = true;
+          // 배의 투명도 조정
+          obj.material.opacity = 0.25;
+          obj.material.depthWrite = false;
+          obj.material.needsUpdate = true;
+        }
+
+        obj.renderOrder = 1;
+      });
+
+      scene.add(ship);
+
+      // 확인용
+      const finalBox =
+        new THREE.Box3().setFromObject(ship);
+
+      const finalSize =
+        finalBox.getSize(new THREE.Vector3());
+
+      console.log('LNG ship loaded');
+      console.log('Final ship size:', finalSize);
+      console.log('Final bbox:', finalBox);
+    },
+
+    undefined,
+
+    (error) => {
+      console.error(
+        'GLB load error:',
+        error
+      );
     }
-    scene.add(label(name + ' 화물창', '', c, TD + 8, 0));
-  });
-  scene.add(box(56, 273, D, TD, -(w - 6), w - 6, new THREE.MeshStandardMaterial({ color: 0xE9ECF2, transparent: true, opacity: 0.55 })));
-  // 선미 거주구·조타실·굴뚝, 압축기실
-  scene.add(box(12, 30, D, D + 18, -14, 14, solid), box(20, 31, D + 18, D + 22, -21, 21, solid), box(3, 11, D, D + 26, -4, 4, solid));
-  scene.add(box(62, 74, TD, TD + 5, -6, 6, solid));
+  );
+
+  // // 화물창(멤브레인, 팔각형 단면)과 트렁크 갑판 위 돔
+  // const w = B / 2 - 3, oct = [[-(w - 4), DB], [w - 4, DB], [w, DB + 4], [w, D - 5], [w - 8, TD - 1], [-(w - 8), TD - 1], [-w, D - 5], [-w, DB + 4]];
+  // const tankMat = new THREE.MeshStandardMaterial({ color: 0xBFCBE6, transparent: true, opacity: 0.28, depthWrite: false });
+  // const solid = new THREE.MeshStandardMaterial({ color: 0xDFE3EA });
+  // TANKS.forEach(([x0, x1, name]) => {
+  //   const geo = new THREE.ExtrudeGeometry(new THREE.Shape(oct.map(([z, y]) => new THREE.Vector2(z, y))), { depth: x1 - x0, bevelEnabled: false });
+  //   geo.rotateY(-Math.PI / 2); geo.translate(x1, 0, 0);
+  //   const t = new THREE.Mesh(geo, tankMat);
+  //   t.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x5B6B8C, transparent: true, opacity: 0.6 })));
+  //   scene.add(t);
+  //   const c = (x0 + x1) / 2;
+  //   for (const [dx, r] of [[-5, 1.8], [4, 1.3]]) {
+  //     const dome = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 3, 20), solid); dome.position.set(c + dx, TD + 1.5, 0); scene.add(dome);
+  //   }
+  //   scene.add(label(name + ' 화물창', '', c, TD + 8, 0));
+  // });
+  // scene.add(box(56, 273, D, TD, -(w - 6), w - 6, new THREE.MeshStandardMaterial({ color: 0xE9ECF2, transparent: true, opacity: 0.55 })));
+  // // 선미 거주구·조타실·굴뚝, 압축기실
+  // scene.add(box(12, 30, D, D + 18, -14, 14, solid), box(20, 31, D + 18, D + 22, -21, 21, solid), box(3, 11, D, D + 26, -4, 4, solid));
+  // scene.add(box(62, 74, TD, TD + 5, -6, 6, solid));
   // 선저 블록(이중저): 블록 07~16 x 좌현/우현. 데이터가 있는 블록만 누를 수 있다
+  // const hits = [];
+  // cols.forEach((c, i) => {
+  //   const x0 = BX0 + i * BL, x1 = x0 + BL, half = Math.min(B / 2 - 0.5, hb((x0 + x1) / 2) - 2);
+  //   for (const side of ['P', 'S']) {
+  //     const name = 'B' + c + side, on = name in blocks, s = side === 'P' ? -1 : 1;
+  //     const m = box(x0 + 0.3, x1 - 0.3, kz(x0) + 0.2, kz(x0) + DB, side === 'P' ? -half : 0.3, side === 'P' ? -0.3 : half,
+  //       new THREE.MeshStandardMaterial({ color: on ? BLUE : 0xC9CBD3, transparent: true, opacity: on ? 0.92 : 0.4, emissive: 0x000000 }));
+  //     m.userData = on ? { name, title: `BLK ${name} · ${blocks[name]} 선저 · 평면도 열기`, href: href + name } : { name, title: `BLK ${name} · 예시 블록 (데이터 없음)` };
+  //     scene.add(m); hits.push(m);
+  //     if (on) scene.add(label(`${name} ${blocks[name]}`, 'on', (x0 + x1) / 2, -4, s * (B / 2 + 6)));
+  //   }
+  // });
+
+  // ----------------------------------------------------
+// 선저 블록 B07 ~ B16
+// 실제 LNG GLB 위에 기존 클릭 영역을 그대로 유지
+// ----------------------------------------------------
   const hits = [];
+
+  // 블록이 실제 선박 안에서 잘 보이도록 높이 조정
+  const BLOCK_Y0 = 1.5;
+  const BLOCK_Y1 = 5.0;
+
   cols.forEach((c, i) => {
-    const x0 = BX0 + i * BL, x1 = x0 + BL, half = Math.min(B / 2 - 0.5, hb((x0 + x1) / 2) - 2);
+
+    const x0 = BX0 + i * BL;
+    const x1 = x0 + BL;
+
+    const half = Math.min(
+      B / 2 - 0.5,
+      hb((x0 + x1) / 2) - 2
+    );
+
     for (const side of ['P', 'S']) {
-      const name = 'B' + c + side, on = name in blocks, s = side === 'P' ? -1 : 1;
-      const m = box(x0 + 0.3, x1 - 0.3, kz(x0) + 0.2, kz(x0) + DB, side === 'P' ? -half : 0.3, side === 'P' ? -0.3 : half,
-        new THREE.MeshStandardMaterial({ color: on ? BLUE : 0xC9CBD3, transparent: true, opacity: on ? 0.92 : 0.4, emissive: 0x000000 }));
-      m.userData = on ? { name, title: `BLK ${name} · ${blocks[name]} 선저 · 평면도 열기`, href: href + name } : { name, title: `BLK ${name} · 예시 블록 (데이터 없음)` };
-      scene.add(m); hits.push(m);
-      if (on) scene.add(label(`${name} ${blocks[name]}`, 'on', (x0 + x1) / 2, -4, s * (B / 2 + 6)));
+
+      const name = 'B' + c + side;
+      const on = name in blocks;
+      const s = side === 'P' ? -1 : 1;
+
+      const material = new THREE.MeshStandardMaterial({
+        color: on ? BLUE : 0xC9CBD3,
+        transparent: true,
+
+        // 실제 데이터 있는 블록만 눈에 띄게
+        opacity: on ? 0.92 : 0.10,
+
+        emissive: 0x000000,
+
+        // 실제 GLB보다 블록이 잘 보이게
+        depthWrite: false
+      });
+
+      const m = box(
+        x0 + 0.3,
+        x1 - 0.3,
+
+        // Y 위치
+        BLOCK_Y0,
+        BLOCK_Y1,
+
+        // 좌현 / 우현
+        side === 'P'
+          ? -half
+          : 0.3,
+
+        side === 'P'
+          ? -0.3
+          : half,
+
+        material
+      );
+
+      // 실제 선박보다 위에 그리기
+      m.renderOrder = 3;
+
+      // 기존 클릭 / hover 정보 그대로 유지
+      m.userData = on
+        ? {
+            name,
+            title: `BLK ${name} · ${blocks[name]} 선저 · 평면도 열기`,
+            href: href + name
+          }
+        : {
+            name,
+            title: `BLK ${name} · 예시 블록 (데이터 없음)`
+          };
+
+      scene.add(m);
+      hits.push(m);
+
+      // 실제 데이터 있는 B12P / B12S 등만 라벨 표시
+      if (on) {
+        scene.add(
+          label(
+            `${name} ${blocks[name]}`,
+            'on',
+            (x0 + x1) / 2,
+            BLOCK_Y1 + 3,
+            s * (B / 2 + 6)
+          )
+        );
+      }
     }
   });
+
   scene.add(label('선수 FWD →', '', L + 14, D, 0), label('선미', '', -12, D, 0));
   const grid = new THREE.GridHelper(700, 35, 0xD5DAE5, 0xE6E9F0); grid.position.set(150, -12, 0); scene.add(grid);
 
