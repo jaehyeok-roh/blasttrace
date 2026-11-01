@@ -12,6 +12,17 @@ def _read(path, max_side=1280):
     return (cv2.resize(img, None, fx=s, fy=s, interpolation=cv2.INTER_AREA) if s < 1 else img), s
 
 
+def sane(H, w, h) -> bool:
+    """정합 행렬이 사진으로 말이 되는가: 거울상이 아니고, 배율 0.25~4배, 옮긴 네 모서리가 볼록한 사각형.
+    어두운 시편 사진에서 대응점 35~154개로 사진을 점 하나로 찌그러뜨리는 행렬(배율 0.001~0.03)이 '성공'으로 나온 적이 있다"""
+    H = np.asarray(H, float)
+    det = np.linalg.det(H[:2, :2] / H[2, 2])
+    if det <= 0 or not 0.25 < np.sqrt(det) < 4:
+        return False
+    p = cv2.perspectiveTransform(np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2), H)
+    return bool(np.isfinite(p).all() and cv2.isContourConvex(p))
+
+
 def align(before_path: str, after_path: str) -> dict:
     """조치 전 사진 -> 재검사 사진 변환.
     반환: {"success": bool, "matches": RANSAC 통과 대응점 수, "homography": 3x3 (원본 픽셀 기준) 또는 None}"""
@@ -36,4 +47,6 @@ def align(before_path: str, after_path: str) -> dict:
         return {**fail, "matches": n}
     # 줄인 사진 기준 변환을 원본 픽셀 기준으로 되돌린다
     H = np.diag([1 / sb, 1 / sb, 1]) @ H @ np.diag([sa, sa, 1])
+    if not sane(H, a.shape[1] / sa, a.shape[0] / sa):
+        return {**fail, "matches": n}
     return {"success": True, "matches": n, "homography": (H / H[2, 2]).round(6).tolist()}

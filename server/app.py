@@ -683,8 +683,9 @@ def next_step(z, todo, findings, post):
 @app.get("/zones/{zid}")
 def zone(request: Request, zid: str):
     z = zone_or_404(zid)
-    photo = one("SELECT * FROM photos WHERE zone_id=? AND kind='pre' ORDER BY id DESC", zid)
-    post = one("SELECT * FROM photos WHERE zone_id=? AND kind='post' ORDER BY id DESC", zid)
+    # 반사·어두움으로 튕겼거나 다시 찍기로 버린 사진(ok=0)은 이 구역의 사진으로 보여 주지 않는다
+    photo = one("SELECT * FROM photos WHERE zone_id=? AND kind='pre' AND ok=1 ORDER BY id DESC", zid)
+    post = one("SELECT * FROM photos WHERE zone_id=? AND kind='post' AND ok=1 ORDER BY id DESC", zid)
     findings = q("SELECT f.*, p.kind FROM findings f JOIN photos p ON p.id = f.photo_id WHERE f.zone_id=? ORDER BY f.id", zid)
     marks = [f for f in findings if photo and f["photo_id"] == photo["id"]]
     post_marks = [f for f in findings if post and f["photo_id"] == post["id"]]
@@ -719,7 +720,8 @@ def zone(request: Request, zid: str):
                       "acts": [{"note": a["note"], "at": a["ts"]} for a in q("SELECT * FROM actions WHERE finding_id=? ORDER BY id", f["id"])],
                       "rc": rc and {"src": rc["src"], "poly": json.loads(rc["poly"]), "success": rc["success"], "matches": rc["matches"], "at": rc["ts"]}})
     todo = one("SELECT * FROM photos WHERE zone_id=? AND ok=1 AND reviewed=0 ORDER BY id DESC", zid)
-    return page(request, "zone.html", step=7 if post else ZONE_STEP[z["status"]], z=z, photo=photo, post=post,
+    step = 7 if post_phase(z) and z["status"] != "Close-out" else ZONE_STEP[z["status"]]  # 도장 후 사진을 버려도 ⑦ 단계
+    return page(request, "zone.html", step=step, z=z, photo=photo, post=post,
                 findings=findings, marks=marks, post_marks=post_marks, link=link, polys=polys,
                 recurs=recurs, rej_marks=rej_marks, events=events, report=report, nums=nums, cases=cases,
                 timeline=zone_timeline(z, photo, post, findings, nums), nxt=next_step(z, todo, findings, post),

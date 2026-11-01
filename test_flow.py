@@ -317,6 +317,13 @@ s = np.zeros((100, 100))
 s[10:20, 10:20], s[10:20, 22:30], s[70:90, 70:90], s[50, 50] = 0.8, 0.6, 0.9, 0.99
 assert regions(s, 1000, 1000) == [dict(x=700, y=700, w=200, h=200, score=0.9), dict(x=100, y=100, w=200, h=100, score=0.8)]
 
+# 정합 행렬 점검: 회전·이동은 통과, 사진을 점으로 찌그러뜨리거나(어두운 시편 사진에서 실제로 나옴) 거울상이면 실패
+from cv.align import sane  # noqa: E402
+rot = [[0, -1, 2000], [1, 0, 0], [0, 0, 1]]  # 90도 돌려 찍은 사진
+assert sane(rot, 2000, 1500) and sane(np.eye(3), 2000, 1500)
+assert not sane(np.diag([0.01, 0.01, 1]), 2000, 1500) and not sane(np.diag([-1, 1, 1]), 2000, 1500)
+assert not sane([[1, 0, 0], [0, 1, 0], [-0.001, 0, 1]], 2000, 1500)  # 원근이 사진 안에서 뒤집혀 모서리가 꼬임
+
 # 도면은 3D 모델과 같은 구형 탱크 LNG선이다. 3D는 인터넷 없이 뜬다
 hm, bp = c.get("/").text, c.get("/blocks/B12P").text
 assert "cdn.jsdelivr" not in hm + bp and c.get("/static/vendor/three/three.module.js").status_code == 200 and c.get("/static/vendor/three/addons/loaders/GLTFLoader.js").status_code == 200
@@ -354,6 +361,14 @@ assert status("Z-22") == "검토 대기" and "사진 다시 올리기" in c.get(
 c.post(f"/review/{p1}/retake")
 assert status("Z-22") == "촬영 불량" and "검사원 재촬영 요청" in c.get("/m/Z-22").text and c.get(f"/review/{p1}", follow_redirects=False).status_code == 303
 assert not bt.q("SELECT 1 FROM candidates WHERE photo_id=?", p1)
+src1 = bt.one("SELECT src FROM photos WHERE id=?", p1)["src"]
+assert src1 not in c.get("/zones/Z-22").text  # 버린 사진은 구역 화면에 이 구역의 사진으로 나오지 않는다
+# 도장 후 사진을 버려도 같다 (Z-06 = Close-out 예시 구역, 도장 전 사진 없음): 비교 칸 없이 ⑦ 단계, 다음 촬영도 도장 후
+c.post("/m/Z-06/photo", files={"photo": ("p.png", open(S + "painted.png", "rb").read(), "image/png")})
+p6 = bt.one("SELECT * FROM photos WHERE zone_id='Z-06' ORDER BY id DESC")
+c.post(f"/m/photos/{p6['id']}/retake")
+z6 = c.get("/zones/Z-06").text
+assert p6["src"] not in z6 and "같은 자리 비교" not in z6 and '<li class="on"><b>7</b>' in z6 and "도장 후 촬영" in c.get("/m/Z-06").text
 up()
 p2 = last()
 assert p2 != p1 and status("Z-22") == "검토 대기"
