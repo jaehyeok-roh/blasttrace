@@ -283,7 +283,7 @@ ep = c.get("/effect").text
 assert "판정 시간은 0분" in ep and "18.9" in ep and "c-close\">계산에 씀" not in ep  # 표본 1건은 아직 기본값을 쓴다
 assert "<svg class=\"wf\"" in ep and "숫자의 근거" in ep and "실측 <b>0</b>" in ep and "앱 입력" in ep
 
-# 품질 분석: 지도(판정한 기록이 있는 구역만 세고 나머지는 '기록 없음') · 도막 두께 90/10
+# 품질 분석: 지도(판정한 기록이 있는 구역만 세고 나머지는 '기록 없음') · 분광 표면 상태 · 도막 두께 90/10
 assert bt.zone_q("Z-04")[:3:2] == (3, 2) and bt.zone_q("Z-18") is None  # Z-04: 지적 3 · 재발 1 + 반려했던 자리 1
 qh = c.get("/quality").text  # 품질 분석 첫 화면 = 블록 고르기 (블록마다 판정 기록 요약)
 assert all(f'href="/quality/{b}"' in qh for b in ("B12P", "B12S")) and "90/10 미충족" in qh
@@ -297,12 +297,27 @@ assert 'href="/zones/H-31"' in qs and 'href="/quality/B12S?s=D&amp;m=rw"' in qs 
 assert 'href="/blocks/B12S?s=H"' in qs and 'href="/quality/B12S?s=H"' in c.get("/blocks/B12S?s=H").text
 assert 'href="/blocks/B12P?s=Z">← 전체 평면도' in c.get("/zones/Z-04").text  # 구역 화면 → 그 면 전체 평면도
 assert c.get("/quality/B13P").status_code == 404 and c.get("/quality/B12P?s=X").status_code == 404
-dq = c.get("/quality/B12P?m=dft").text
-assert "90/10 계산 결과 · 미충족" in dq and "최종 판정은 검사원" in dq and '<a class="qbad" href="/zones/Z-04"' in dq and "87.5%" in dq  # 예시: Z-04 보수 전 320 미만 3점 / 24점
-c.post("/quality/dft", data={"text": "Z-04, 341\nz-04, 352\nZ-04 330\nZ-04, 300\nZ-99, 300\n구역,µm"})
-assert [r["um"] for r in bt.q("SELECT um FROM dft WHERE zone_id='Z-04'")] == [341, 352, 330, 300]
-dq = c.get("/quality/B12P?m=dft").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 충족, 테두리 없음
-assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and '<a class="qbad"' not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
+dq = c.get("/quality/B12P").text  # 도막 두께 90/10은 지도 아래 패널(지도 기준과 무관)
+assert "90/10 계산 결과 · 미충족" in dq and "최종 판정은 검사원" in dq and "87.5%" in dq and "m=dft" not in dq  # 예시: Z-04 보수 전 320 미만 3점 / 24점
+r = c.post("/quality/dft", data={"text": "Z-04, 341\nz-04, 352\nZ-04 330\nZ-04, 300\nZ-99, 300\n구역,µm"}, follow_redirects=False)
+assert r.headers["location"].endswith("#dft") and [r["um"] for r in bt.q("SELECT um FROM dft WHERE zone_id='Z-04'")] == [341, 352, 330, 300]
+dq = c.get("/quality/B12P").text  # 300은 288~320이라 10% 안에서 허용: 19/20 = 95%, 최소 300 → 충족
+assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and "도막 두께 4점 입력" in c.get("/zones/Z-04").text
+# 분광 · 표면 상태: 측정점마다 모델 분류(강판/도장/녹), 칸 = 녹 보임 / 도장한 구역에 강판 / 이상 없음
+assert bt.sp_cell(["bare_metal", "rust"], False) == ("sp-rust", "녹") and bt.sp_cell(["orange_paint", "bare_metal"], True) == ("sp-warn", "미도장")
+assert bt.sp_cell(["bare_metal"], False) == ("sp-ok", "") and bt.sp_cell(["orange_paint"], True) == ("sp-ok", "")
+real = bt.classify
+bt.classify = lambda rows: [(r["surface_label"] or ("bare_metal" if r["position_id"] in ("L02", "L03") else "orange_paint"), 0.9) for r in rows]
+sq = c.get("/quality/B12P?m=sp").text  # 가짜 모델(모델 파일은 git에 없다): 시편 라벨, Z-04(T5)는 L02·L03만 강판
+assert '<a class="sp-rust" href="/zones/Z-03"' in sq and '<a class="sp-warn" href="/zones/Z-04"' in sq and '<a class="sp-ok" href="/zones/Z-01"' in sq
+assert '<a class="sp-ok" href="/zones/Z-06"' in sq, "Z-06"
+assert '<a class="qn" href="/zones/Z-18"' in sq and sq.count("· 녹 (확신도") == 4 and "예시 배치" in sq
+bt.classify = lambda rows: None
+assert "분광 모델 파일이 없어" in c.get("/quality/B12P?m=sp").text
+bt.classify = real
+if bt.surface_model():  # 선우 모델이 있는 PC: 녹 시편(R1) 구역은 녹, 맨 강판(N1) 구역은 이상 없음
+    sq = c.get("/quality/B12P?m=sp").text
+    assert '<a class="sp-rust" href="/zones/Z-03"' in sq and '<a class="sp-ok" href="/zones/Z-06"' in sq
 
 # 데이터 선순환: 시뮬레이션은 화면에서만 돌아서 실제 기록을 건드리지 않는다
 n_ev = bt.one("SELECT COUNT(*) n FROM events")["n"]
@@ -330,10 +345,8 @@ assert "cdn.jsdelivr" not in hm + bp and c.get("/static/vendor/three/three.modul
 assert "No.5 TANK" in hm and "멤브레인" not in hm + bp and "No.3 화물창 (구형 탱크)" in bp and "16 × 850" in bp
 assert 'id="plate" data-s="Z"' in bp and '"plate-view-home"' in bp and "재검사 사진 기다림" in bp  # 검사 현황도 3D ↔ 평면도, 기본은 평면도
 
-# 분광 측정 탭: 센서 CSV 형식에서 표면별 평균 곡선을 읽는다. 예시 값이면 표시한다
-sp = c.get("/spectral").text
-assert sp.count('<polyline class="ln"') == 4 and "예시 값" in sp and "도막 두께는 재지 못합니다" in sp and "분광 측정" in c.get("/").text
-assert [round(x, 2) for x in bt.spectra("녹", bt.ROOT / "shared" / "spectral_surfaces.csv")[0]["refl"][:2]] == [0.07, 0.08]
+# 분광 측정 탭은 뺐다(지어낸 예시 곡선이 실제 측정과 어긋남). 분광은 품질 지도에 분류 모델로 붙일 예정
+assert c.get("/spectral").status_code == 404 and 'href="/spectral"' not in c.get("/").text
 
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]

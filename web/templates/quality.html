@@ -14,16 +14,20 @@
  <nav class="seg">{% for k, name in MODES.items() %}<a class="{{ 'on' if k == m }}" href="/quality/{{ b }}?s={{ s }}&m={{ k }}#map">{{ name }}</a>{% endfor %}</nav></div></div>
  <div class="pb">{{ ui.plate(zones, s, 'plate-view-quality', '3d', qv=qv, dots=dots, legend=legend) }}
  <p class="eff-line">
- {%- if m == 'dft' %}점에 마우스를 올리면 측정값이 나옵니다. 빨간 구역은 {{ (0.9 * NDFT)|int }} µm 미만(90/10에서 허용되지 않는 값)이 있는 구역입니다.
+ {%- if m == 'sp' and not sp.ready %}분광 모델 파일이 없어 분류하지 못했습니다(sensor/weights/spectral_rf.joblib).
+ {%- elif m == 'sp' %}점 하나 = 분광 측정 한 번(AS7343), 색 = 모델 분류(강판·도장·녹 3가지{% if sp.version %} · {{ sp.version }} · 학습 {{ sp.n_train }}건{% endif %}). 점에 마우스를 올리면 확신도와 시편 위치가 나옵니다.
+  빨간 칸은 녹이 보인 구역, 주황 칸은 도장한 구역인데 강판으로 나온 점이 있어 도장이 빠졌는지 볼 구역입니다.
+  <br>분광은 표면만 봅니다. 도막 밑 녹(녹 위에 도장한 시편도 '도장'으로 나옴)과 도막 두께는 못 보고, 두께는 아래 게이지 값으로 봅니다. 최종 판정은 검사원이 합니다.
+  {%- if sp.mock %}<br>예시 배치: 시편(N1·N2·R1·R2) 측정값을 예시 구역에 놓은 것이고, 일부는 모델 학습에 쓴 측정입니다.{% endif %}
  {%- elif top %}{{ {'nf': '지적이 많은 곳', 'rw': '재조치가 반복된 곳', 'rc': '도장 후 결함이 도장 전 지적·반려 자리와 겹친 곳'}[m] }}:
   {% for zid, v in top %}<b class="mono">{{ zid }}</b> {{ v }}{{ {'nf': '건', 'rw': '회', 'rc': '곳'}[m] }}{{ ' · ' if not loop.last }}{% endfor %}.
   {{ {'nf': '같은 작업자·장비·시간대였는지 볼 곳입니다.', 'rw': '조치 방법이나 판정 기준을 다시 볼 곳입니다.', 'rc': '도장 전 판단이나 표면처리를 되짚을 곳입니다.'}[m] }}
  {%- else %}해당하는 구역이 없습니다.{% endif %}
- {%- if m != 'dft' %}<br>검사원이 판정한 기록이 있는 구역만 셉니다. 흐린 칸은 아직 기록이 없는 구역이고, 검사가 진행되면 채워집니다.{% endif %}
+ {%- if m != 'sp' %}<br>검사원이 판정한 기록이 있는 구역만 셉니다. 흐린 칸은 아직 기록이 없는 구역이고, 검사가 진행되면 채워집니다.{% endif %}
  {%- if m == 'rc' %}<br>같은 자리 기준: {{ SAME_SPOT }}.{% endif %}</p>
  </div></div>
 
-<div class="panel"><div class="ph"><h2>도막 두께 · 90/10 판정</h2><span class="note">목표 {{ NDFT }} µm (PSPC)</span></div><div class="pb">
+<div class="panel" id="dft"><div class="ph"><h2>도막 두께 · 90/10 판정</h2><span class="note">목표 {{ NDFT }} µm (PSPC)</span></div><div class="pb">
  <div class="cols" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
   <div>
   {%- if d %}
@@ -32,7 +36,7 @@
     <span class="tag {{ 'c-close' if d.mn >= 0.9 * NDFT else 'c-punch' }}">최소 {{ '%g' % d.mn }} µm (기준 {{ (0.9 * NDFT)|int }})</span>
     <span class="tag {{ 'c-close' if d.ok else 'c-punch' }}">90/10 계산 결과 · {{ '충족' if d.ok else '미충족' }}</span></div>
    <p class="eff-line" style="margin:0 0 6px"><b>최종 판정은 검사원</b>이 합니다.{{ '' if d.ok else ' 미달 부위는 보수 후 다시 재서 넣습니다.' }}</p>
-   <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.{% if m != 'dft' %} <a href="/quality/{{ b }}?s={{ s }}&m=dft#map">지도에서 보기 →</a>{% endif %}</p>
+   <p class="eff-line" style="margin:0">측정 {{ d.n }}점 · {{ d.zones }}개 구역{{ ' · 예시 측정값 포함' if d.mock }}.</p>
   {%- else %}<p class="note">아직 측정값이 없습니다.</p>{% endif %}
    <p class="eff-line">PSPC 90/10: 측정값의 90% 이상이 {{ NDFT }} µm 이상이고, 나머지도 {{ (0.9 * NDFT)|int }} µm 이상이면 충족. 화면은 계산만 하고 합격 판정은 검사원이 합니다. 값은 자석식 도막 게이지로 잽니다.</p>
   </div>

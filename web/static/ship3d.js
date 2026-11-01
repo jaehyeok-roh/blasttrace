@@ -474,7 +474,7 @@ export function mountPlate(el, svg) {
   const unit = new THREE.BoxGeometry(M - 0.1, 0.03, M - 0.1), dot = new THREE.SphereGeometry(0.1, 12, 10);
   rects.forEach((r, i) => {
     const a = r.parentNode, css = getComputedStyle(r), x = (+r.getAttribute('x') - 3.5 - X0) / CW * M + M / 2, z = (+r.getAttribute('y') - 3.5 - Y0) / CH * M + M / 2;
-    const m = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: a.classList.contains('qbad') ? css.stroke : css.fill }));
+    const m = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: css.fill }));
     m.position.set(x, 0.02, z);
     m.userData = { title: a.querySelector('title').textContent, href: a.getAttribute('href') };
     scene.add(m); hits.push(m);

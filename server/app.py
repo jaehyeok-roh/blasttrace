@@ -38,7 +38,7 @@ from PIL import Image, ImageOps
 from cv.align import align
 from cv.predict import predict, yolo
 from llm.report import make_report
-from sensor.spectral import WAVELENGTHS, analyze
+from sensor.spectral import SURFACE_KO, WAVELENGTHS, analyze, classify, surface_model
 from server import effect
 from server.quality import check_quality
 
@@ -348,9 +348,9 @@ def loc_id(f):
     return f"{f['zone_id']}-I-{f['id']:02d}"
 
 
-def spectra(loc, path=None):
-    """센서 CSV(기본 data/sensor.csv)에서 이 위치의 측정을 시간순으로 읽는다. 반사율 = sample / 바로 앞 white."""
-    path = path or DATA / "sensor.csv"
+def spectra(loc):
+    """data/sensor.csv에서 이 위치의 측정을 시간순으로 읽는다. 반사율 = sample / 바로 앞 white."""
+    path = DATA / "sensor.csv"
     if not path.exists():
         return []
     out, white = [], None
@@ -926,10 +926,22 @@ def data(request: Request):
                 reasons=[(k, why[k]) for k in REASONS], most=max(why.values(), default=1))
 
 
-# ---------- 품질 분석: 블록 품질 지도 · 도막 두께 90/10 ----------
+# ---------- 품질 분석: 블록 품질 지도 · 분광 표면 상태 · 도막 두께 90/10 ----------
 
-QMODES = {"nf": "지적 수", "rw": "재조치", "rc": "같은 자리 재발", "dft": "도막 두께"}
+QMODES = {"nf": "지적 수", "rw": "재조치", "rc": "같은 자리 재발", "sp": "분광 · 표면 상태"}
 QUNIT = {"nf": "건", "rw": "회", "rc": "곳"}
+# 분광 측정점: 선우 측정 CSV와 같은 열(location_id에 구역 ID). 지금 값은 시편 측정값을 예시 구역에 배치한 것(source = 예시 배치)
+SP_POINTS = ROOT / "shared" / "spectral_points.csv"
+
+
+def sp_cell(labels, painted):
+    """구역 하나의 분광 측정 분류 → (칸 class, 칸 글자). 녹이 보이면 빨강, 도장된 구역에서 강판이 보이면 주황(도장 안 된 점), 아니면 초록.
+    painted = 도장한 구역인가(도장 측정점이 있거나 도장 후 사진·Release). 도장 전 구역의 강판은 정상이다"""
+    if "rust" in labels:
+        return "sp-rust", "녹"
+    if painted and "bare_metal" in labels:
+        return "sp-warn", "미도장"
+    return "sp-ok", ""
 
 
 def zone_q(zid):
@@ -972,11 +984,10 @@ def quality(request: Request, b: str, s: str = "Z", m: str = "nf"):
     for r in q("SELECT d.* FROM dft d JOIN zones z ON z.id = d.zone_id WHERE z.block=? AND z.id LIKE ? ORDER BY d.id", b, f"{s}-%"):
         dft.setdefault(r["zone_id"], []).append(r)
     um = [r["um"] for rs in dft.values() for r in rs]
-    LOW = 0.9 * NDFT  # 90/10에서 나머지 10%도 넘어야 하는 값
     d = dft_judge(um)
     if d:
         d.update(zones=len(dft), mock=any(r["origin"] == "예시" for rs in dft.values() for r in rs))
-    qv, dots, top = {}, None, []
+    qv, dots, top, sp = {}, None, [], None
     if m in QUNIT:
         i, u = list(QUNIT).index(m), QUNIT[m]
         vals = {z["id"]: zone_q(z["id"]) for z in zones}
@@ -984,22 +995,37 @@ def quality(request: Request, b: str, s: str = "Z", m: str = "nf"):
             qv[k] = ("qn", "", "기록 없음") if v is None else (f"q{min(v[i], 3)}", f"{v[i]}{u}" if v[i] else "", f"{QMODES[m]} {v[i]}{u}")
         top = sorted(((k, v[i]) for k, v in vals.items() if v and v[i]), key=lambda x: (-x[1], x[0]))[:4]
         legend = [("q0", "0" + u), ("q1", "1" + u), ("q2", "2" + u), ("q3", f"3{u} 이상"), ("qn", "기록 없음")]
-    else:
+    else:  # 분광 · 표면 상태: 측정점마다 모델 분류(강판 / 도장 / 녹)
+        ids = {z["id"] for z in zones}
+        rows = [r for r in csv.DictReader(SP_POINTS.read_text(encoding="utf-8").splitlines()) if r["location_id"] in ids and r["quality"] == "valid"] \
+            if SP_POINTS.exists() else []
+        got = classify(rows)
+        by = {}
+        for r, (c, p) in zip(rows, got or []):
+            by.setdefault(r["location_id"], []).append((r, c, p))
         dots = {}
         for z in zones:
-            rs = dft.get(z["id"], [])
-            low = sum(r["um"] < LOW for r in rs)
-            qv[z["id"]] = (("qbad" if low else "q0") if rs else "qn", "",
-                           f"측정 {len(rs)}점 · {int(LOW)} µm 미만 {low}점" if rs else "측정 전")
-            cols = math.ceil(math.sqrt(len(rs) * 2)) if rs else 1  # 칸 아래쪽에 가로로 긴 격자로 늘어놓는다
-            rows = math.ceil(len(rs) / cols) if rs else 1
-            dots[z["id"]] = [((j % cols + 0.5) / cols, (j // cols + 0.5) / rows,
-                              "d-ok" if r["um"] >= NDFT else "d-lo" if r["um"] >= LOW else "d-bad",
-                              f"{z['id']} · {j + 1}번 · {r['um']:g} µm · {r['origin']}") for j, r in enumerate(rs)]
-        legend = [("qbad", f"{int(LOW)} µm 미만 있음"), ("qn", "측정 전"), ("d-ok", f"{NDFT} µm 이상"),
-                  ("d-lo", f"{int(LOW)}~{NDFT} µm (10%까지 허용)"), ("d-bad", f"{int(LOW)} µm 미만")]
+            ps = by.get(z["id"], [])
+            if not ps:
+                qv[z["id"]] = ("qn", "", "측정 전")
+                continue
+            labels = [c for _, c, _ in ps]
+            painted = "orange_paint" in labels or z["status"] == "Release 완료" or \
+                bool(one("SELECT 1 FROM photos WHERE zone_id=? AND kind='post' AND ok=1", z["id"]))
+            cls, txt = sp_cell(labels, painted)
+            qv[z["id"]] = (cls, txt, f"측정 {len(ps)}점 · " + " · ".join(f"{SURFACE_KO[k]} {labels.count(k)}" for k in SURFACE_KO if k in labels))
+            cols = math.ceil(math.sqrt(len(ps) * 2))  # 칸 아래쪽에 가로로 긴 격자로 늘어놓는다
+            nrow = math.ceil(len(ps) / cols)
+            dots[z["id"]] = [((j % cols + 0.5) / cols, (j // cols + 0.5) / nrow, f"d-{c.split('_')[0]}",
+                              f"{z['id']} · {j + 1}번 · {SURFACE_KO[c]} (확신도 {p:.2f}) · 시편 {r['specimen_id']}-{r['position_id']} · {r.get('source') or '측정'}")
+                             for j, (r, c, p) in enumerate(ps)]
+        legend = [("sp-rust", "녹 보임"), ("sp-warn", "도장 안 된 점"), ("sp-ok", "이상 없음"), ("qn", "측정 전"),
+                  ("d-orange", "도장"), ("d-bare", "강판"), ("d-rust", "녹")]
+        m_ = surface_model()
+        sp = dict(ready=got is not None, n=len(rows), mock=any(r.get("source") == "예시 배치" for r in rows),
+                  version=m_ and m_.get("model_version"), n_train=m_ and m_.get("n_samples"))
     return page(request, "quality.html", nav="quality", b=b, s=s, m=m, MODES=QMODES, zones=zones, qv=qv, dots=dots,
-                legend=legend, top=top, d=d, NDFT=NDFT, surf_n=surface_counts(b))
+                legend=legend, top=top, d=d, NDFT=NDFT, surf_n=surface_counts(b), sp=sp)
 
 
 @app.post("/quality/dft")
@@ -1017,7 +1043,7 @@ def quality_dft(b: str = "B12P", s: str = "Z", text: str = Form(""), file: Uploa
         for v in vals:
             run("INSERT INTO dft(zone_id, um, ts, origin) VALUES(?,?,?,'게이지')", zid, v, now())
         log(zid, f"도막 두께 {len(vals)}점 입력 · {NDFT} µm 미만 {sum(v < NDFT for v in vals)}점")
-    return go(f"/quality/{b}?s={s}&m=dft#map")
+    return go(f"/quality/{b}?s={s}#dft")
 
 
 # ---------- 효과 분석: 공수 모델(server/effect.py)에 앱 기록에서 잰 값을 넣어 다시 계산 ----------
@@ -1074,29 +1100,6 @@ def effect_now():
     meas, team = measured(), effect.team_values()
     app_vals = {k: m["v"] for k, m in meas.items() if m["model"] and m["n"] >= MIN_N}
     return meas, team, app_vals, effect.report({**team, **app_vals})
-
-
-# 분광 측정 탭: 표면별 곡선. 값은 shared/spectral_surfaces.csv(센서 CSV와 같은 형식, location_id = 아래 키, 같은 표면이 여러 번이면 평균).
-# source가 '예시'인 줄이 있으면 화면에 예시 값이라고 표시한다
-SPEC_SURF = [("도장면", "도장면", "spec_paint.jpg", "#1F4FFF", "페인트 색이 곡선 모양을 정합니다."),
-             ("녹", "녹", "spec_rust.jpg", "#C2410C", "빨강 쪽으로 갈수록 올라갑니다."),
-             ("강판", "깨끗한 강판", "spec_clean.jpg", "#667085", "파장이 바뀌어도 거의 평평합니다."),
-             ("기름때", "기름때", "spec_oil.jpg", "#14234D", "전체가 어둡게 내려갑니다.")]
-
-
-@app.get("/spectral")
-def spectral_page(request: Request):
-    rows = []
-    for key, name, img, color, read in SPEC_SURF:
-        ms = spectra(key, ROOT / "shared" / "spectral_surfaces.csv")
-        if ms:
-            refl = [round(statistics.mean(c), 3) for c in zip(*(m["refl"] for m in ms))]
-            rows.append(dict(name=name, img=img, color=color, read=read, refl=refl, source=ms[-1]["source"]))
-    # 곡선 끝 이름표가 겹치지 않게 위에서부터 16px 이상 띄운다
-    y = -99
-    for r in sorted(rows, key=lambda r: -r["refl"][-1]):
-        r["ly"] = y = max(14 + (1 - min(r["refl"][-1], 0.8) / 0.8) * 216 + 4, y + 16)
-    return page(request, "spectral.html", nav="spectral", rows=rows, mock=any(r["source"] == "예시" for r in rows))
 
 
 # 데이터 선순환 시뮬레이션의 가정. 계산은 화면(loop.html)에서 돌아서 실제 기록은 바뀌지 않는다. 숫자는 실측이 아니다

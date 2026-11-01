@@ -260,7 +260,8 @@ try { show(saved); tabs.style.display = ''; } catch (e) { delete w.dataset.v; }
  <text x="{{ (X0 + X1) / 2 }}" y="{{ Y1 + 25 }}" text-anchor="middle">{{ COLS * 2 }} × 850 = {{ '{:,}'.format(COLS * 2 * 850) }}</text>
  <text x="{{ X1 + 26 }}" y="{{ (Y0 + Y1) / 2 }}" text-anchor="middle" transform="rotate(-90 {{ X1 + 26 }} {{ (Y0 + Y1) / 2 }})">{{ ROWS * 2 }} × 850 = {{ '{:,}'.format(ROWS * 2 * 850) }}</text>
  <g class="lw"><path class="web" d="M24,416 H56"/></g><text class="h2" x="64" y="420">늑판(웹) · 거더</text>
- {%- for k, label in legend or PLAN_LEGEND %}{% set x, y = [(190, 408), (380, 408), (24, 434), (190, 434), (380, 434)][loop.index0] %}
+ {%- set lg = legend or PLAN_LEGEND %}{% set P = [(190, 408), (380, 408), (24, 434), (190, 434), (380, 434)] if lg|length <= 5 else [(190, 408), (332, 408), (474, 408), (24, 434), (166, 434), (308, 434), (450, 434)] %}
+ {%- for k, label in lg %}{% set x, y = P[loop.index0] %}
  {%- if k.startswith('d-') %}<circle class="{{ k }}" cx="{{ x + 11 }}" cy="{{ y + 8 }}" r="5.5"/>
  {%- else %}<g class="{{ k }}"><rect class="z" x="{{ x }}" y="{{ y }}" width="22" height="16" rx="3"/></g>{% endif %}<text class="h2" x="{{ x + 30 }}" y="{{ y + 12 }}">{{ label }}</text>
  {%- endfor %}

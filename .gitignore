@@ -11,6 +11,7 @@ iso8502_p9.png
 *.pth
 *.pt
 *.onnx
+*.joblib
 datasets/
 
 # 비밀 정보

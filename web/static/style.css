@@ -167,18 +167,21 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);border-radius:
 .dwg .s-review,.dwg .s-recheck{--f:#EA580C}
 .dwg .s-fixed{--f:#DCE6FB;--b:#9DB4EA}
 .dwg .s-close,.dwg .s-release{--f:#DFF2E5;--b:#9ED5B0}
-/* 품질 분석: 개수는 빨강 한 가지 색의 진하기, 흐린 점선 칸 = 기록·측정 없음. 도막 두께는 288 미만 있는 구역 테두리 + 측정점 */
+/* 품질 분석: 개수는 빨강 한 가지 색의 진하기, 흐린 점선 칸 = 기록·측정 없음. 분광은 아래 */
 .dwg .q0{--f:#fff;--b:#D0D5DD;color:#98A2B3}
 .dwg .q1{--f:#FDE3E3;--b:#F5B5B5;color:#991B1B}
 .dwg .q2{--f:#DC2626;color:#fff}
 .dwg .q3{--f:#7F1D1D;color:#fff}
 .dwg .qn{--f:#F7F8FA;--b:#C9CED6;color:#B8BDC6}
 .dwg .qn .z{stroke-dasharray:4 3}
-.dwg .qbad{--f:#FFF1F1;--b:#DC2626;color:#991B1B}
-.dwg .qbad .z{stroke-width:2.5}
-.dwg circle.d-ok{fill:#1F4FFF}
-.dwg circle.d-lo{fill:#EA580C}
-.dwg circle.d-bad{fill:#DC2626}
+/* 분광 · 표면 상태: 칸 = 구역 판단(녹 보임 / 도장된 구역에 강판 / 이상 없음), 점 = 측정점 하나의 분류 */
+.dwg .sp-ok{--f:#DFF2E5;--b:#9ED5B0;color:#166534}
+.dwg .sp-warn{--f:#FED7AA;--b:#EA580C;color:#9A3412}
+.dwg .sp-rust{--f:#FCA5A5;--b:#DC2626;color:#7F1D1D}
+.dwg .sp-warn .z,.dwg .sp-rust .z{stroke-width:2.5}
+.dwg circle.d-orange{fill:#EA580C}
+.dwg circle.d-bare{fill:#98A2B3}
+.dwg circle.d-rust{fill:#7F1D1D}
 .dwg .dots circle{stroke:#fff;stroke-width:1.5}
 .dwg .dots circle:hover{stroke:var(--ink);stroke-width:2}
 /* 홈 블록 분할도: 측면(블록 12 열 강조) + 선저 평면(좌현 P 위 · 우현 S 아래). 파란 칸만 누를 수 있다 */
@@ -462,27 +465,6 @@ body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rg
 .lpf .row{display:block;margin:0;padding:4px 0;font-size:12.5px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lpf .row.bad{color:#B91C1C;font-weight:600}
 .lpf .row.good{color:var(--blue);font-weight:600}
-
-/* 분광 측정 */
-.spm{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:14px;align-items:stretch}
-.spm .panel{margin-bottom:14px}
-.spchart{display:block;width:100%;height:auto;max-height:272px}
-.spchart .gr{stroke:#ECECEF}
-.spchart .ax{font:500 11.5px Pretendard,'맑은 고딕',sans-serif;fill:var(--sub)}
-.spchart .ln{fill:none;stroke-width:2.5;stroke-linejoin:round}
-.spchart .pt{fill-opacity:0}
-.spchart .pt:hover{fill-opacity:1}
-.spchart .nm{font:700 12.5px Pretendard,'맑은 고딕',sans-serif}
-.spl{display:flex;flex-direction:column;gap:9px}
-.spl>div{display:flex;align-items:center;gap:12px}
-.spl img{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none}
-.spl b{display:block;font-size:14.5px}
-.spl span{font-size:13px;line-height:1.4}
-.spc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-.spc .panel{margin-bottom:12px}
-.spc .pb{padding:10px 14px}
-.spc h3{margin:6px 0 2px;font-size:14.5px}
-.spc p{margin:0;font-size:13px;line-height:1.4}
 
 /* 품질 분석 3D 철판 */
 .pl3 .s3{display:none;height:500px}
