@@ -51,7 +51,7 @@
  {% if spectral and f.kind == 'post' and f.status != 'closed' %}{% set s = last.get(f.id) %}
  <form class="card" method="post" action="/m/findings/{{ f.id }}/measure">
   <h2><span class="mono">I-{{ '%02d' % f.id }}</span> 분광 측정</h2>
-  {% if s %}<div class="mres {{ 'bad' if s.rust_index >= 1.5 else 'good' }}">{{ '⚠ 도막 아래 녹 신호' if s.rust_index >= 1.5 else '✓ 녹 신호 없음' }}<span>녹 지표 {{ s.rust_index }} · {{ s.at }}</span></div>
+  {% if s %}<div class="mres {{ 'bad' if s.rust_index >= 1.5 else 'good' }}">{{ '⚠ 표면 녹 번짐 신호' if s.rust_index >= 1.5 else '✓ 녹 신호 없음' }}<span>녹 지표 {{ s.rust_index }} · {{ s.at }}</span></div>
   {% else %}<p class="note">센서를 지적 위치에 대고 누르세요. 값은 노트북으로 바로 갑니다.</p>{% endif %}
   <button class="btn blue big" onclick="document.body.classList.add('busy')">검사원 · 분광 측정{{ ' (시뮬레이터)' if sim }}</button>
  </form>

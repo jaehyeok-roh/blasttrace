@@ -1,15 +1,14 @@
-// 홈 3D 선박: LNG 운반선(멤브레인형, 길이 약 305 m · 폭 45 m)을 단순한 형상으로 그린다.
-// 반투명 선체 안에 화물창 4개와 선저 블록(이중저)이 보이고, 데이터가 있는 블록(파란색)을 누르면 블록 화면으로 간다.
-// 팀 3D 모델(Sketchfab LNG Ship → GLB)이 준비되면 hull() 대신 GLTFLoader로 불러오면 된다. 블록·화물창 배치는 그대로 쓴다.
-// 단위 m. x = 선미→선수, y = 위, z = 우현(+) / 좌현(-). 배치는 2D 블록 분할도(_ui.html ship)와 같은 비율이다.
+// 3D 선박: 팀 LNG선 모델(models/lng_ship.glb, 구형 탱크 5개, 길이 305 m · 폭 약 42 m · 갑판 약 25 m)을 도안처럼 투명하게 깔고,
+// 그 안에 선저 블록(홈)이나 기록 칸(선순환 화면)을 그린다. 데이터가 있는 블록(파란색)을 누르면 블록 화면으로 간다.
+// 단위 m. x = 선미→선수, y = 위, z = 우현(+) / 좌현(-). 블록·탱크 배치는 2D 블록 분할도(_ui.html ship)와 같은 비율이다.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const L = 305, B = 45, D = 27, TD = 31, DB = 3;           // 길이, 폭, 갑판, 트렁크 갑판, 이중저 높이
-const BX0 = 54, BL = 21.3;                                 // 블록 07의 선미 끝, 블록 길이 (07~16)
-const TANKS = [[56, 117, 'No.4'], [119, 181, 'No.3'], [183, 245, 'No.2'], [247, 273, 'No.1']];
+const BX0 = 74, BL = 19.8;                                 // 블록 07의 선미 끝, 블록 길이 (07~16). 구형 탱크 하나 = 블록 2개
+const TANKS = [[75, 112, 'No.5'], [114, 151, 'No.4'], [154, 191, 'No.3'], [194, 231, 'No.2'], [233, 270, 'No.1']];
 const INK = 0x2B2F3A, BLUE = 0x1F4FFF;
 
 const smooth = t => t * t * (3 - 2 * t);
@@ -25,6 +24,9 @@ function kz(x) {
   if (x > 270) return 6 * Math.pow((x - 270) / 35, 2);
   return 0;
 }
+// 모델 선체를 잘라 잰 반폭: 이중저 높이(블록이 선체 밖으로 나가지 않는 폭) / 선측. 선수로 가면 좁아진다
+const floorHalf = x => Math.max(9, 18 - Math.max(0, x - 235) * 0.23);
+const sideHalf = x => 20.9 - Math.max(0, x - 245) * 0.16;
 // 횡단면 둘레: 좌현 갑판 → 좌현 선측 → 빌지 → 선저 → 우현 → 우현 갑판. 점 수는 항상 같다 (z, y)
 function section(x) {
   const h = Math.max(hb(x), 0.01), k = kz(x), r = Math.max(0.01, Math.min(4, h * 0.5, (D - k) * 0.5)), pts = [[-h, D], [-h, k + r]];
@@ -85,22 +87,22 @@ function label(text, cls, x, y, z) {
   const o = new CSS2DObject(el); o.position.set(x, y, z); return o;
 }
 
-export function mount(el) {
-  const href = el.dataset.href, blocks = JSON.parse(el.dataset.blocks), cols = JSON.parse(el.dataset.cols);
+// 장면·카메라·조명: 홈과 선순환 화면이 같이 쓴다
+function stage(el) {
   const scene = new THREE.Scene();
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.setClearColor(0xF7F8FB);
-  const labels = new CSS2DRenderer();
-  Object.assign(labels.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
-  el.append(renderer.domElement, labels.domElement);
+  el.append(renderer.domElement);
   const camera = new THREE.PerspectiveCamera(35, 1, 1, 3000);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.minDistance = 60; controls.maxDistance = 900; controls.maxPolarAngle = Math.PI - 0.05;
   scene.add(new THREE.HemisphereLight(0xFFFFFF, 0x8A96AA, 1.2));
   const sun = new THREE.DirectionalLight(0xFFFFFF, 0.9); sun.position.set(120, 260, -140); scene.add(sun);
+  return { scene, renderer, camera, controls };
+}
 
-  //scene.add(hull());
-
+// LNG선 모델(GLB)을 기존 좌표계에 맞추고, 안쪽 블록이 잘 보이게 단색 + 투명 + 윤곽선(도안)으로 올린다
+function loadShip(scene, line = 0.35) {  // line = 윤곽선 진하기
   const loader = new GLTFLoader();
 
   loader.load(
@@ -115,9 +117,9 @@ export function mount(el) {
       // GLB : Z축이 선수-선미
       // 기존 코드 : X축이 선미→선수
       //
-      // 현재 화면에서 선수 방향이 반대로 보이므로 -90도 사용
+      // 거주구가 선미(x = 0) 쪽, 선수가 +x 쪽에 오도록 +90도
       // ------------------------------------------------
-      ship.rotation.y = -Math.PI / 2;
+      ship.rotation.y = Math.PI / 2;
 
       ship.updateMatrixWorld(true);
 
@@ -175,7 +177,8 @@ export function mount(el) {
           obj.material.forEach((mat) => {
             mat.transparent = true;
             // 배의 투명도 조정
-            mat.opacity = 0.25;
+            mat.opacity = 0.08;
+            mat.color.set(0xC4CDDC); mat.metalness = 0; mat.roughness = 1;
             mat.depthWrite = false;
             mat.needsUpdate = true;
           });
@@ -186,13 +189,19 @@ export function mount(el) {
 
           obj.material.transparent = true;
           // 배의 투명도 조정
-          obj.material.opacity = 0.25;
+          obj.material.opacity = 0.08;
+          obj.material.color.set(0xC4CDDC); obj.material.metalness = 0; obj.material.roughness = 1;
           obj.material.depthWrite = false;
           obj.material.needsUpdate = true;
         }
 
         obj.renderOrder = 1;
       });
+
+      const meshes = [];
+      ship.traverse(o => { if (o.isMesh) meshes.push(o); });
+      meshes.forEach(o => o.add(new THREE.LineSegments(new THREE.EdgesGeometry(o.geometry, 40),
+        new THREE.LineBasicMaterial({ color: 0x46557A, transparent: true, opacity: line }))));
 
       scene.add(ship);
 
@@ -217,6 +226,47 @@ export function mount(el) {
       );
     }
   );
+}
+
+// 가리키면 이름(userData.title), 누르면(끌지 않았을 때만) userData.href로 간다. mark(물체, 켜짐)으로 가리킨 표시를 한다
+function clicks(el, renderer, camera, hits, mark) {
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), tip = el.querySelector('.s3-tip');
+  let hover = null, down = null;
+  const pick = e => {
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    return (ray.intersectObjects(hits, false)[0] || {}).object || null;
+  };
+  renderer.domElement.addEventListener('pointermove', e => {
+    const o = pick(e);
+    if (hover !== o) {
+      if (hover) mark(hover, false);
+      hover = o;
+      if (o) mark(o, true);
+    }
+    renderer.domElement.style.cursor = o && o.userData.href ? 'pointer' : '';
+    tip.hidden = !o;
+    if (o) { const r = el.getBoundingClientRect(); tip.textContent = o.userData.title; tip.style.left = e.clientX - r.left + 12 + 'px'; tip.style.top = e.clientY - r.top + 12 + 'px'; }
+  });
+  renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
+    const o = pick(e);
+    if (o && o.userData.href) location.href = o.userData.href;
+  });
+}
+
+export function mount(el) {
+  const href = el.dataset.href, blocks = JSON.parse(el.dataset.blocks), cols = JSON.parse(el.dataset.cols);
+  const { scene, renderer, camera, controls } = stage(el);
+  const labels = new CSS2DRenderer();
+  Object.assign(labels.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+  el.append(labels.domElement);
+
+  //scene.add(hull());
+
+  loadShip(scene, 0.8);
 
   // // 화물창(멤브레인, 팔각형 단면)과 트렁크 갑판 위 돔
   // const w = B / 2 - 3, oct = [[-(w - 4), DB], [w - 4, DB], [w, DB + 4], [w, D - 5], [w - 8, TD - 1], [-(w - 8), TD - 1], [-w, D - 5], [-w, DB + 4]];
@@ -259,7 +309,7 @@ export function mount(el) {
   const hits = [];
 
   // 블록이 실제 선박 안에서 잘 보이도록 높이 조정
-  const BLOCK_Y0 = 1.5;
+  const BLOCK_Y0 = 2.2;
   const BLOCK_Y1 = 5.0;
 
   cols.forEach((c, i) => {
@@ -267,10 +317,7 @@ export function mount(el) {
     const x0 = BX0 + i * BL;
     const x1 = x0 + BL;
 
-    const half = Math.min(
-      B / 2 - 0.5,
-      hb((x0 + x1) / 2) - 2
-    );
+    const half = floorHalf((x0 + x1) / 2);
 
     for (const side of ['P', 'S']) {
 
@@ -363,34 +410,101 @@ export function mount(el) {
   };
   new ResizeObserver(resize).observe(el); resize(); setView('iso');
 
-  // 가리키면 이름, 누르면(끌지 않았을 때만) 이동
-  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), tip = el.querySelector('.s3-tip');
-  let hover = null, down = null;
-  const pick = e => {
-    const r = renderer.domElement.getBoundingClientRect();
-    ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
-    ray.setFromCamera(ptr, camera);
-    return (ray.intersectObjects(hits, false)[0] || {}).object || null;
-  };
-  renderer.domElement.addEventListener('pointermove', e => {
-    const o = pick(e);
-    if (hover !== o) {
-      if (hover) hover.material.emissive.setHex(0x000000);
-      hover = o;
-      if (o) o.material.emissive.setHex(o.userData.href ? 0x1030AA : 0x222222);
-    }
-    renderer.domElement.style.cursor = o && o.userData.href ? 'pointer' : '';
-    tip.hidden = !o;
-    if (o) { const r = el.getBoundingClientRect(); tip.textContent = o.userData.title; tip.style.left = e.clientX - r.left + 12 + 'px'; tip.style.top = e.clientY - r.top + 12 + 'px'; }
-  });
-  renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-  renderer.domElement.addEventListener('pointerup', e => {
-    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
-    const o = pick(e);
-    if (o && o.userData.href) location.href = o.userData.href;
-  });
+  clicks(el, renderer, camera, hits, (o, on) => o.material.emissive.setHex(on ? (o.userData.href ? 0x1030AA : 0x222222) : 0x000000));
 
   renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); labels.render(scene, camera); });
   el.dataset.ready = '1';
   el.querySelector('.s3-msg').remove();
+}
+
+// 데이터 선순환 화면: LNG선 도안에 기록 칸(cols × rows)만 그린다. 밸러스트 탱크가 화물창을 둘러싸는 모양대로 좌현 선측 2줄 · 이중저 4줄 · 우현 선측 2줄.
+// 칸 색과 빨간 점은 화면 쪽에서 바꾼다. 본문이 CSS zoom 안에 있어서 캔버스 크기는 CSS(100%)에 맡기고 드로잉 버퍼만 맞춘다
+export function mountLoop(el, cols, rows) {
+  const { scene, renderer, camera, controls } = stage(el);
+  loadShip(scene);
+  const cw = 10 * BL / cols, side = 2, H = 8.6, tiles = [], unit = new THREE.BoxGeometry(cw - 0.9, 1, 1);
+  for (let i = 0; i < cols * rows; i++) {
+    const r = i % rows, x = BX0 + (Math.floor(i / rows) + 0.5) * cw;
+    const m = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: 0xD3D8E0, transparent: true }));  // 선체에 가리지 않게 맨 나중에 그린다
+    if (r < side || r >= rows - side) {
+      const k = r < side ? r : rows - 1 - r;
+      m.position.set(x, 24.2 - (k + 0.5) * H, (r < side ? -1 : 1) * sideHalf(x)); m.scale.set(1, H - 0.7, 0.4);
+    } else {
+      const half = floorHalf(x), ch = 2 * half / (rows - 2 * side);
+      m.position.set(x, 3.4, -half + (r - side + 0.5) * ch); m.scale.set(1, 1.6, ch - 0.7);
+    }
+    m.renderOrder = 3; scene.add(m); tiles.push(m);
+  }
+  const marks = new THREE.Group(), dot = new THREE.SphereGeometry(2.4, 12, 10), red = new THREE.MeshBasicMaterial({ color: 0xDC2626, transparent: true });
+  scene.add(marks);
+  const resize = () => {
+    const { width, height } = el.getBoundingClientRect();
+    renderer.setSize(width, height, false);
+    camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix();
+    const k = Math.max(1, 1.9 / camera.aspect), t = [150, 10, 0];
+    camera.position.set(...[84, 170, 215].map((c, i) => t[i] + (c - t[i]) * k)); controls.target.set(...t); controls.update();
+  };
+  new ResizeObserver(resize).observe(el); resize();
+  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+  el.dataset.ready = '1';
+  return {
+    paint: (i, color) => tiles[i] && tiles[i].material.color.set(color),
+    mark: i => {
+      const t = tiles[i], m = new THREE.Mesh(dot, red), j = () => Math.random() - 0.5;
+      if (!t) return;
+      m.position.copy(t.position).add(new THREE.Vector3(j() * cw * 0.6, j() * t.scale.y * 0.6 + (t.scale.z > 1 ? 3 : 0), j() * t.scale.z * 0.6));
+      m.renderOrder = 4; marks.add(m);
+    },
+    clear: () => marks.clear(),
+  };
+}
+
+// 품질 분석: 블록 평면도(SVG)의 칸을 그대로 읽어 철판을 3D로 세운다. 칸 위치·색·측정점이 평면도와 항상 같다.
+// 칸 하나 = 1.7 m × 1.7 m(2프레임 × 2론지). 탱크 안쪽(Z)과 호퍼(H)는 론지·늑판·거더가 보이고, 내저판 윗면(D)·선저 외판(O)은 매끈한 면이다
+export function mountPlate(el, svg) {
+  const { scene, renderer, camera, controls } = stage(el);
+  const labels = new CSS2DRenderer();
+  Object.assign(labels.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+  el.append(labels.domElement);
+  const gut = svg.querySelector('.gut'), rects = [...svg.querySelectorAll('a > rect.z')], names = svg.querySelectorAll('.zl > g'), M = 1.7;
+  const X0 = +gut.getAttribute('x'), Y0 = +gut.getAttribute('y'), CW = +rects[0].getAttribute('width') + 7, CH = +rects[0].getAttribute('height') + 7;
+  const W = +gut.getAttribute('width') / CW * M, H = +gut.getAttribute('height') / CH * M, hits = [];
+  scene.add(box(-0.2, W + 0.2, -0.08, 0, -0.2, H + 0.2, new THREE.MeshStandardMaterial({ color: 0xDDE1E8 })));
+
+  const unit = new THREE.BoxGeometry(M - 0.1, 0.03, M - 0.1), dot = new THREE.SphereGeometry(0.1, 12, 10);
+  rects.forEach((r, i) => {
+    const a = r.parentNode, css = getComputedStyle(r), x = (+r.getAttribute('x') - 3.5 - X0) / CW * M + M / 2, z = (+r.getAttribute('y') - 3.5 - Y0) / CH * M + M / 2;
+    const m = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: a.classList.contains('qbad') ? css.stroke : css.fill }));
+    m.position.set(x, 0.02, z);
+    m.userData = { title: a.querySelector('title').textContent, href: a.getAttribute('href') };
+    scene.add(m); hits.push(m);
+    scene.add(label([...names[i].querySelectorAll('.id, .st')].map(t => t.textContent).join(' '), '', x, 0.5, z));
+  });
+  svg.querySelectorAll('.dots circle').forEach(c => {
+    const m = new THREE.Mesh(dot, new THREE.MeshBasicMaterial({ color: getComputedStyle(c).fill }));
+    m.position.set((+c.getAttribute('cx') - X0) / CW * M, 0.45, (+c.getAttribute('cy') - Y0) / CH * M);
+    m.userData = { title: c.querySelector('title').textContent };
+    scene.add(m); hits.push(m);
+  });
+  if ('ZH'.includes(el.dataset.s)) {
+    const steel = new THREE.MeshStandardMaterial({ color: 0xC2C9D6 });
+    const ghost = new THREE.MeshStandardMaterial({ color: 0xC4CDDC, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide });
+    for (let z = 0; z <= H + 0.01; z += M / 2) scene.add(box(0, W, 0.03, 0.24, z - 0.012, z + 0.012, steel), box(0, W, 0.24, 0.26, z - 0.05, z + 0.05, steel));  // 론지(T형)
+    for (let x = 0; x <= W + 0.01; x += M * 2) scene.add(box(x - 0.02, x + 0.02, 0, 1.5, 0, H, ghost));  // 늑판(4프레임마다)
+    scene.add(box(0, W, 0, 1.5, H / 2 - 0.02, H / 2 + 0.02, ghost));  // 거더(L4)
+  }
+  scene.add(label('FWD →', '', W + 0.9, 0.2, H / 2));
+
+  camera.near = 0.1; controls.minDistance = 3; controls.maxDistance = 40; controls.maxPolarAngle = Math.PI / 2 - 0.05;
+  const resize = () => {
+    const { width, height } = el.getBoundingClientRect();
+    renderer.setSize(width, height); labels.setSize(width, height);
+    camera.aspect = width / Math.max(height, 1); camera.updateProjectionMatrix();
+    const k = Math.max(0.82, 1.6 / camera.aspect);
+    camera.position.set(W / 2 - 3.5 * k, 9.5 * k, H / 2 + 12.5 * k); controls.target.set(W / 2, 0, H / 2); controls.update();
+  };
+  new ResizeObserver(resize).observe(el); resize();
+  clicks(el, renderer, camera, hits, (o, on) => o.scale.set(on ? 1.05 : 1, on ? 5 : 1, on ? 1.05 : 1));
+  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); labels.render(scene, camera); });
+  el.dataset.ready = '1';
 }

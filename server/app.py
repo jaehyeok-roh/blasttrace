@@ -62,8 +62,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS), name="uploads")
 tpl = Jinja2Templates(directory=WEB / "templates")
 
 # 블록 평면도: 가로 = 프레임(Fr.204~220), 세로 = 론지(L1~L7). 칸 하나(2프레임 x 2론지)가 검사 구역이다.
-# 프레임은 선미(A.P)부터 0.8 m 간격으로 센다. 길이 약 305 m LNG선에서 B12(No.3 화물창 앞쪽)는 대략 Fr.201~228이고,
-# 평면도는 그중 16프레임(12.8 m)만 그린다.
+# 프레임은 선미(A.P)부터 0.85 m 간격으로 센다. 길이 약 305 m LNG선에서 B12(No.3 화물창 앞쪽)는 대략 Fr.204~226이고,
+# 평면도는 그중 16프레임(13.6 m)만 그린다.
 # 현장은 새 ID가 아니라 도면 위치로 부르므로, 구역 ID 옆에 항상 Fr/L 위치를 같이 보여 준다.
 COLS, ROWS, FR0, L0 = 8, 3, 204, 1
 
@@ -90,15 +90,15 @@ def zone_loc(zid):
 
 # 블록 안의 면 = 구역 ID 첫 글자. 블록은 뒤집혀 만들어지기도 해서 '위·아래'가 아니라 배 기준 부재 이름으로 부른다.
 # (이름, 설명, 세로축 부재 기호). 면마다 같은 격자(8 x 3)를 쓰고, 지금 예시 기록은 내저판 윗면(Z)에만 있다
-# LNG선(멤브레인 화물창)은 화물창 안쪽이 단열재로 덮이고, 도장 품질 기준(PSPC)이 정해진 곳은 바깥의 밸러스트 탱크다.
+# LNG선 화물창은 알루미늄 구형 탱크라 도장하지 않고, 도장 품질 기준(PSPC)이 정해진 곳은 바깥의 밸러스트 탱크다.
 # 그래서 예시 기록(Z)은 이중저 밸러스트 탱크에 둔다
 SURFACES = {"Z": ("이중저 밸러스트 탱크", "탱크 바닥 · PSPC", "L"),
             "H": ("하부 호퍼 경사판", "화물창 쪽 경사면", "HL"),
-            "D": ("내저판 윗면", "화물창 쪽 · 단열재 설치면", "L"),
+            "D": ("내저판 윗면", "화물창 쪽 · 구형 탱크 아래", "L"),
             "O": ("선저 외판 바깥", "배 바깥 바닥", "L")}
 
 
-# 홈의 블록 분할도: LNG 운반선, 선미(왼쪽)부터 블록 07~16 (화물창 No.4~No.1, 탱크 하나 = 블록 3개, B12 = No.3 화물창 앞쪽). 데이터가 있는 블록은 선저 B12의 좌현(P)·우현(S)이다.
+# 홈의 블록 분할도: LNG 운반선, 선미(왼쪽)부터 블록 07~16 (화물창 No.5~No.1, 구형 탱크 하나 = 블록 2개, B12 = No.3 화물창 앞쪽). 데이터가 있는 블록은 선저 B12의 좌현(P)·우현(S)이다.
 # 구역 ID는 호선 안에서 겹치지 않게 B12P = ?-01~24, B12S = ?-25~48 (? = 면 글자)
 SHIP = "H-2231"
 BLOCKS = {"B12P": "좌현", "B12S": "우현"}
@@ -327,9 +327,9 @@ def loc_id(f):
     return f"{f['zone_id']}-I-{f['id']:02d}"
 
 
-def spectra(loc):
-    """data/sensor.csv에서 이 위치의 측정을 시간순으로 읽는다. 반사율 = sample / 바로 앞 white."""
-    path = DATA / "sensor.csv"
+def spectra(loc, path=None):
+    """센서 CSV(기본 data/sensor.csv)에서 이 위치의 측정을 시간순으로 읽는다. 반사율 = sample / 바로 앞 white."""
+    path = path or DATA / "sensor.csv"
     if not path.exists():
         return []
     out, white = [], None
@@ -1033,6 +1033,29 @@ def effect_now():
     return meas, team, app_vals, effect.report({**team, **app_vals})
 
 
+# 분광 측정 탭: 표면별 곡선. 값은 shared/spectral_surfaces.csv(센서 CSV와 같은 형식, location_id = 아래 키, 같은 표면이 여러 번이면 평균).
+# source가 '예시'인 줄이 있으면 화면에 예시 값이라고 표시한다
+SPEC_SURF = [("도장면", "도장면", "spec_paint.jpg", "#1F4FFF", "페인트 색이 곡선 모양을 정합니다."),
+             ("녹", "녹", "spec_rust.jpg", "#C2410C", "빨강 쪽으로 갈수록 올라갑니다."),
+             ("강판", "깨끗한 강판", "spec_clean.jpg", "#667085", "파장이 바뀌어도 거의 평평합니다."),
+             ("기름때", "기름때", "spec_oil.jpg", "#14234D", "전체가 어둡게 내려갑니다.")]
+
+
+@app.get("/spectral")
+def spectral_page(request: Request):
+    rows = []
+    for key, name, img, color, read in SPEC_SURF:
+        ms = spectra(key, ROOT / "shared" / "spectral_surfaces.csv")
+        if ms:
+            refl = [round(statistics.mean(c), 3) for c in zip(*(m["refl"] for m in ms))]
+            rows.append(dict(name=name, img=img, color=color, read=read, refl=refl, source=ms[-1]["source"]))
+    # 곡선 끝 이름표가 겹치지 않게 위에서부터 16px 이상 띄운다
+    y = -99
+    for r in sorted(rows, key=lambda r: -r["refl"][-1]):
+        r["ly"] = y = max(14 + (1 - min(r["refl"][-1], 0.8) / 0.8) * 216 + 4, y + 16)
+    return page(request, "spectral.html", nav="spectral", rows=rows, mock=any(r["source"] == "예시" for r in rows))
+
+
 # 데이터 선순환 시뮬레이션의 가정. 계산은 화면(loop.html)에서 돌아서 실제 기록은 바뀌지 않는다. 숫자는 실측이 아니다
 LOOP_SIM = dict(weeks=26, zones=400, lag=2, retrain=4, r0=0.70, fp=0.15, accept=0.97, human=0.85, surface=0.30, link=0.78,
                 scen={"보수": dict(rinf=0.80, l0=8000), "기본": dict(rinf=0.90, l0=3000), "낙관": dict(rinf=0.93, l0=1500)})
@@ -1040,8 +1063,8 @@ LOOP_SIM = dict(weeks=26, zones=400, lag=2, retrain=4, r0=0.70, fp=0.15, accept=
 
 @app.get("/loop")
 def loop_page(request: Request):
-    p = effect.PARAMS
-    return page(request, "loop.html", nav="loop", sim=dict(LOOP_SIM, pi1=p["pi1"], n_punch=p["n_punch"]))
+    p, r = effect.PARAMS, effect_now()[3]
+    return page(request, "loop.html", nav="loop", sim=dict(LOOP_SIM, pi1=p["pi1"], n_punch=p["n_punch"], T=dict(r["scen"], M0=r["T"]["M0"])))
 
 
 @app.get("/effect")

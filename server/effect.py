@@ -159,6 +159,12 @@ def team_values(path=Path(__file__).parent.parent / "shared" / "effect_params.js
     return {k: float(v) for k, v in d.items() if k in PARAMS and not k.startswith("_")}
 
 
+def _saved(a, b):
+    """현행 a → b 단위공정별 인·분에서 줄어든 곳. 판정(U3)은 줄지 않는다"""
+    d = [x - y for x, y in zip(a, b)]
+    return dict(기록=d[2] + d[4] + d[7] + d[8], 위치=d[1] + d[5], 분쟁=d[6], 판정=d[3], 앱=b[9])
+
+
 def report(over=None):
     """화면용 결과. over = {이름: 값}으로 바꿀 값(앱 기록·팀 실험)"""
     p0 = dict(PARAMS, **(over or {}))
@@ -172,15 +178,17 @@ def report(over=None):
             for r, v in u.items():
                 roles[k][r] = roles[k].get(r, 0) + v
     eta = lambda a, b: (1 - b / a) * 100
-    rng = {s: eta(T["M0"], sum(sum(u.values()) for u in minutes(apply(p0, lev)))) for s, lev in SCENARIOS.items()}
+    units = lambda p: [sum(u.values()) for u in minutes(p)]
+    scen = {s: dict(M1=sum(units(apply(p0, lev))), M2=sum(units(apply(p0, lev, ai=True))), saved=_saved(per["M0"], units(apply(p0, lev))))
+            for s, lev in SCENARIOS.items()}
+    rng = {s: eta(T["M0"], v["M1"]) for s, v in scen.items()}
     plus = sum(sum(u.values()) for u in minutes(apply(p0, SRC_LEVERS, extra=ENV_LOGGER)))
     plus_ai = sum(sum(u.values()) for u in minutes(apply(p0, SRC_LEVERS, ai=True, extra=ENV_LOGGER)))
-    d = [a - b for a, b in zip(per["M0"], per["M1"])]
     return dict(
         T=T, per=per, units=UNITS, short=SHORT, roles=roles, n_dft=round(n_dft(p0)),
         eta01=eta(T["M0"], T["M1"]), eta02=eta(T["M0"], T["M2"]), range=rng,
         plus=dict(T=plus, eta=eta(T["M0"], plus)), plus_ai=dict(T=plus_ai, eta=eta(T["M0"], plus_ai)),
-        saved=dict(기록=d[2] + d[4] + d[7] + d[8], 위치=d[1] + d[5], 분쟁=d[6], 판정=d[3]),
+        saved=_saved(per["M0"], per["M1"]), scen=scen,
         risk={k: rebast_risk(p) * 100 for k, p in (("M0", m0), ("M1", m1), ("M2", m2))},
         rounds=m0["pi1"] / (1 - m0["pi2"]), used=p0)
 

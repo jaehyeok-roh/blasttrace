@@ -30,7 +30,7 @@
   <span class="note">{{ '센서 시뮬레이터 (예시 값)' if sim else '센서 → 서버 바로 전송' }}{% if z.mock %} · <span class="tag c-mute">예시</span>{% endif %}</span></div>
  <div class="pb">
   {% if spec %}{% set s = spec[-1] %}
-  <div class="verdict {{ 'fail' if s.rust_index >= 1.5 else 'ok' }}">{{ '⚠ 도막 아래 녹 신호' if s.rust_index >= 1.5 else '✓ 녹 신호 없음' }}<span>최근 측정 {{ s.at }} · 녹 지표 {{ s.rust_index }} (기준 1.5)</span></div>
+  <div class="verdict {{ 'fail' if s.rust_index >= 1.5 else 'ok' }}">{{ '⚠ 표면 녹 번짐 신호' if s.rust_index >= 1.5 else '✓ 녹 신호 없음' }}<span>최근 측정 {{ s.at }} · 녹 지표 {{ s.rust_index }} (기준 1.5)</span></div>
   <div class="spec-cols">
    <div>{{ ui.spectrum(spec) }}</div>
    <div>{% set off = [spec|length - 3, 0]|max %}{% for s in spec %}

@@ -269,6 +269,8 @@ assert [round(e["risk"][m]) for m in ("M0", "M1", "M2")] == [29, 26, 17] and e["
 assert round(e["plus"]["T"]) == 716 and round(e["plus_ai"]["T"]) == 673 and round(e["saved"]["판정"]) == 0
 e = effect.report()  # 기본: 앱 입력 2분 × (홀드포인트 1 + 재검 라운드마다 2명)이 더해진다
 assert round(e["T"]["M1"]) == 856 and round(e["per"]["M1"][9], 1) == 3.3 and e["per"]["M0"][9] == 0
+assert e["scen"]["기본"]["M1"] == e["T"]["M1"] and e["scen"]["보수"]["M1"] > e["T"]["M1"] > e["scen"]["낙관"]["M1"]
+assert all(v["M2"] < v["M1"] and round(v["saved"]["판정"]) == 0 for v in e["scen"].values())
 assert bt.measured()["pi1"]["n"] == 0  # 지금까지 판정한 사진은 전부 합성이라 세지 않는다
 c.post("/m/Z-30/photo", files={"photo": ("plate.png", flip.tobytes(), "image/png")})  # 좌우 뒤집은 사진 = 시편, 도장 전
 p15 = bt.one("SELECT id FROM photos WHERE zone_id='Z-30'")["id"]
@@ -285,6 +287,7 @@ assert bt.zone_q("Z-04")[:3:2] == (3, 2) and bt.zone_q("Z-18") is None  # Z-04: 
 qh = c.get("/quality").text  # 품질 분석 첫 화면 = 블록 고르기 (블록마다 판정 기록 요약)
 assert all(f'href="/quality/{b}"' in qh for b in ("B12P", "B12S")) and "90/10 미충족" in qh
 qp = c.get("/quality/B12P?m=nf").text
+assert 'id="plate" data-s="Z"' in qp and "mountPlate" in qp  # 평면도 칸을 읽어 만드는 3D 철판
 assert "품질 분석" in qp and '<a class="qn" href="/zones/Z-18"' in qp and '<b class="mono">Z-04</b> 3건' in qp
 assert "같은 자리 기준" in c.get("/quality/B12P?m=rc").text and c.get("/quality/B13P").status_code == 404
 # 블록·면을 골라 들어가고(단면 링크는 지도 기준 m을 유지), 검사 현황 ↔ 품질 분석을 같은 블록·면으로 오간다
@@ -303,7 +306,17 @@ assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and '<a c
 # 데이터 선순환: 시뮬레이션은 화면에서만 돌아서 실제 기록을 건드리지 않는다
 n_ev = bt.one("SELECT COUNT(*) n FROM events")["n"]
 lp = c.get("/loop").text
-assert "시뮬레이션" in lp and '"scen"' in lp and "데이터 선순환" in c.get("/").text and bt.one("SELECT COUNT(*) n FROM events")["n"] == n_ev
+assert "시뮬레이션" in lp and '"scen"' in lp and "선순환 · 효과 분석" in c.get("/").text and bt.one("SELECT COUNT(*) n FROM events")["n"] == n_ev
+assert "누적 공수" in lp and "낮을수록 좋음" in lp and '"M1"' in lp and 'href="/effect"' in lp and 'href="/loop"' in c.get("/effect").text and "mountLoop" in lp
+
+# 도면은 3D 모델과 같은 구형 탱크 LNG선이다
+hm, bp = c.get("/").text, c.get("/blocks/B12P").text
+assert "No.5 TANK" in hm and "멤브레인" not in hm + bp and "No.3 화물창 (구형 탱크)" in bp and "16 × 850" in bp
+
+# 분광 측정 탭: 센서 CSV 형식에서 표면별 평균 곡선을 읽는다. 예시 값이면 표시한다
+sp = c.get("/spectral").text
+assert sp.count('<polyline class="ln"') == 4 and "예시 값" in sp and "도막 두께는 재지 못합니다" in sp and "분광 측정" in c.get("/").text
+assert [round(x, 2) for x in bt.spectra("녹", bt.ROOT / "shared" / "spectral_surfaces.csv")[0]["refl"][:2]] == [0.07, 0.08]
 
 # 같은 자리 기준: 중심점. 옮겨 온 사각형을 스치기만 하면 같은 자리가 아니다
 sq = [[0.2, 0.2], [0.4, 0.2], [0.4, 0.4], [0.2, 0.4]]

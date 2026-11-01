@@ -1,10 +1,10 @@
-{% extends 'base.html' %}
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
 {% block poll %}{% endblock %}{# 시뮬레이션 도중에 다시 그려지면 처음으로 돌아간다 #}
-{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>데이터 선순환</b>{% endblock %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>선순환 · 효과 분석</b>{% endblock %}
 {% block body %}
 <div class="title lph">
  <div><h1>데이터 선순환 <span class="sub" style="font-size:18px">조선소에서 동시에 쓴다면</span></h1></div>
- <span class="tag c-mute">시뮬레이션 · 실측 아님 · 실제 기록은 바뀌지 않음</span>
+ <div class="lpr"><span class="tag c-mute">시뮬레이션 · 실측 아님 · 실제 기록은 바뀌지 않음</span>{{ ui.effect_views('loop') }}</div>
 </div>
 
 <div class="panel"><div class="pb lpc">
@@ -22,26 +22,35 @@
  </div></div>
  <div>
 <div class="panel"><div class="ph"><h2>배에 쌓이는 기록</h2><span class="note">칸 하나 = 100구역</span></div><div class="pb">
-   <svg class="lpship" id="ship" viewBox="-4 -4 620 208" role="img" aria-label="배 도면 칸이 검사 진행에 따라 채워지는 그림"></svg>
-   <div class="lpl"><span><i style="background:#E4E8EE"></i>검사 전</span><span><i style="background:#BFD0FB"></i>도장 전 판단</span><span><i style="background:#2A5BFF"></i>도장 후 결과까지</span><span><i class="d"></i>잘못 반려가 되돌아옴</span></div>
+   <div class="lp3" id="s3"><svg class="lpship" id="ship" viewBox="-4 -4 620 208" role="img" aria-label="배 도면 칸이 검사 진행에 따라 채워지는 그림"></svg></div>
+   <div class="lpl"><span><i style="background:#D3D8E0"></i>검사 전</span><span><i style="background:#BFD0FB"></i>도장 전 판단</span><span><i style="background:#2A5BFF"></i>도장 후 결과까지</span><span><i class="d"></i>잘못 반려가 되돌아옴 <b id="m-b">0</b>곳</span></div>
   </div></div>
 <div class="panel"><div class="ph"><h2>지금 일어나는 일</h2></div><div class="pb"><div class="lpf" id="feed"><p class="note">시작을 누르면 검사원·작업자의 기록이 올라옵니다.</p></div></div></div>
  </div>
-<div class="panel"><div class="ph"><h2>바뀌는 지표</h2><span class="note">라벨링 추가 시간 0분</span></div><div class="pb lpt">
-   <div><span>AI가 먼저 표시한 결함</span><b id="m-r">–</b><svg class="sp" id="s-r" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>재학습이 없으면 {{ '%.0f' % (sim.r0 * 100) }}%</small></div>
-   <div><span>결과로 채점된 판단</span><b id="m-s">0</b><svg class="sp" id="s-s" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>판단과 결과가 이어진 수</small></div>
-   <div><span>되돌아온 잘못된 반려</span><b id="m-b">0</b><svg class="sp" id="s-b" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>반려한 자리의 도장 후 결함</small></div>
-   <div><span>하자 원인 추적률</span><b id="m-t">–</b><svg class="sp" id="s-t" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-t2">도장 전 기록과 이어진 결함</small></div>
+ <div>
+<div class="panel"><div class="ph"><h2>누적 공수</h2><span class="note">인·시 · 막대 끝 = 120명 26주</span></div><div class="pb">
+   <div class="lpbar"><span>현행이었다면</span><i><u id="b-0"></u></i><b id="v-0">0</b></div>
+   <div class="lpbar bt"><span>BlastTrace</span><i><u id="b-1"></u></i><b id="v-1">0</b></div>
+   <p class="lpsv"><span>줄어든 공수</span><b id="v-s">–</b><em id="v-p"></em></p>
+   <p class="note lpw" id="where"></p>
   </div></div>
+<div class="panel"><div class="ph"><h2>바뀌는 지표</h2><span class="note">라벨링 추가 시간 0분</span></div><div class="pb lpt">
+   <h3>↑ 높을수록 좋음</h3><h3>↓ 낮을수록 좋음</h3>
+   <div><span>AI가 먼저 표시한 결함</span><b id="m-r">–</b><svg class="sp" id="s-r" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>재학습이 없으면 {{ '%.0f' % (sim.r0 * 100) }}%</small></div>
+   <div><span>구역 1건 공수</span><b id="m-h">–</b><svg class="sp" id="s-h" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>점선 = 현행 {{ '%.1f' % (sim.T.M0 / 60) }}시간</small></div>
+   <div><span>결과로 채점된 판단</span><b id="m-s">0</b><svg class="sp" id="s-s" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>판단과 결과가 이어진 수</small></div>
+   <div><span>100구역당 도장 후 결함</span><b id="m-f">–</b><svg class="sp" id="s-f" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-f2"></small></div>
+  </div></div>
+ </div>
 </div>
-<p class="note">가정: 검사원 120명이 주 {{ sim.zones }}구역(연 2만) · 지적 나오는 구역 {{ '%.0f' % (sim.pi1 * 100) }}% · 그 구역당 {{ '%g' % sim.n_punch }}건 · 도장 후 결과 {{ sim.lag }}주 뒤 · 사진 연결 {{ '%.0f' % (sim.link * 100) }}% · AI 시작 {{ '%.0f' % (sim.r0 * 100) }}% · {{ sim.retrain }}주마다 재학습. 재학습 효과는 가정이고, 앱 기록이 쌓이면 실제 값으로 바꿉니다.</p>
+<p class="note">가정: 검사원 120명이 주 {{ sim.zones }}구역(연 2만) · 지적 나오는 구역 {{ '%.0f' % (sim.pi1 * 100) }}% · 그 구역당 {{ '%g' % sim.n_punch }}건 · 도장 후 결과 {{ sim.lag }}주 뒤 · 사진 연결 {{ '%.0f' % (sim.link * 100) }}% · AI 시작 {{ '%.0f' % (sim.r0 * 100) }}% · {{ sim.retrain }}주마다 재학습. 공수는 공수 상세의 모델 값이고, AI가 좋아질수록 AI 가설값 쪽으로 내려갑니다. 재학습 효과는 가정이고, 앱 기록이 쌓이면 실제 값으로 바꿉니다.</p>
 
 <script>
 (() => {
   const P = {{ sim|tojson }}, $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg';
   const el = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
   const DAY = 350, MAXDAY = P.weeks * 5, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const COLS = 13, ROWS = 4 * 2, CELL = 25;
+  const COLS = 13, ROWS = 4 * 2, CELL = 25, EMPTY = '#D3D8E0', PRE = '#BFD0FB', DONE = '#2A5BFF';
   const fmt = v => Math.round(v).toLocaleString('ko-KR');
   const rnd = n => Math.floor(Math.random() * n);
 
@@ -68,21 +77,36 @@
   const cBig = el('text', {class: 'c2', x: C[0], y: C[1] + 16, 'text-anchor': 'middle'}, ring);
   el('text', {class: 'c1', x: C[0], y: C[1] + 42, 'text-anchor': 'middle'}, ring).textContent = 'AI가 먼저 표시한 결함';
 
-  // 배 도면
+  // 배: 평면 도면을 먼저 그려 두고 3D가 뜨면 바꾼다. 인터넷이 없어 3D를 못 불러오면 평면 도면이 그대로 남는다
   const ship = $('ship'), W = COLS * CELL, H = ROWS * CELL;
   el('path', {class: 'hull', d: `M0,0 H${W + 8} Q${W + 62},${H * .12} ${W + 80},${H / 2} Q${W + 62},${H * .88} ${W + 8},${H} H0 Z`}, ship);
   const cells = [];
-  for (let i = 0; i < COLS * ROWS; i++) cells.push(el('rect', {x: Math.floor(i / ROWS) * CELL + 1.5, y: i % ROWS * CELL + 1.5, width: CELL - 3, height: CELL - 3, rx: 3, fill: '#E4E8EE'}, ship));
+  for (let i = 0; i < COLS * ROWS; i++) cells.push(el('rect', {x: Math.floor(i / ROWS) * CELL + 1.5, y: i % ROWS * CELL + 1.5, width: CELL - 3, height: CELL - 3, rx: 3, fill: EMPTY}, ship));
   const shipDots = el('g', {}, ship);
+  let s3 = null;
+  const paint = (i, color) => { if (cells[i]) { cells[i].setAttribute('fill', color); if (s3) s3.paint(i, color); } };
+  window.lpUse3d = mount => {
+    s3 = mount($('s3'), COLS, ROWS);
+    cells.forEach((c, i) => s3.paint(i, c.getAttribute('fill')));
+    ship.style.display = 'none';
+  };
 
   let S, playing = false, speed = 1, scen = '기본', people = 120, last = 0, acc = 0, packets = [], carry = 0, finished = false;
+  // 구역 1건 공수(인·분): 기록 연결만으로 M1까지 줄고, AI가 좋아진 만큼 M2(가설, AI 낙관 끝값일 때)로 더 내려간다
+  const T = () => P.T[scen];
+  const perZone = () => T().M1 - (T().M1 - T().M2) * Math.min(1, (S.r - P.r0) / (P.scen['낙관'].rinf - P.r0));
+  // 재학습이 없을 때 구역 100곳당 도장 후 결함 = 지적 × (AI도 사람도 놓침 + 잘못 반려) × 도장 후 드러날 확률
+  const F0 = P.pi1 * P.n_punch * ((1 - P.r0) * (1 - P.human) + P.r0 * (1 - P.accept)) * P.surface * 100;
 
   function reset() {
-    S = {day: 0, zones: 0, photos: 0, labels: 0, pairs: 0, scored: 0, back: 0, post: 0, linked: 0, retrains: 0, returned: 0, r: P.r0, q: [], hist: [], feed: 0};
+    S = {day: 0, zones: 0, photos: 0, labels: 0, pairs: 0, scored: 0, back: 0, post: 0, retrains: 0, returned: 0, r: P.r0, q: [], hist: [], wk: [], f: null, mh0: 0, mh1: 0, feed: 0};
     carry = 0; finished = false; packets.forEach(p => p.el.remove()); packets = [];
-    cells.forEach(c => c.setAttribute('fill', '#E4E8EE')); shipDots.replaceChildren();
-    $('feed').replaceChildren(); ['r', 's', 'b', 't'].forEach(k => $('s-' + k).replaceChildren());
+    cells.forEach((_, i) => paint(i, EMPTY)); shipDots.replaceChildren(); if (s3) s3.clear();
+    $('feed').replaceChildren(); ['r', 's', 'h', 'f'].forEach(k => $('s-' + k).replaceChildren());
     say('시작을 누르면 검사원·작업자의 기록이 올라옵니다.', 'idle');
+    const s = T().saved, n = v => Math.round(v);
+    $('where').innerHTML = `구역 1건에서 기록·전사 −${n(s.기록)}분 · 위치 찾기 −${n(s.위치)}분 · 분쟁 −${n(s.분쟁)}분 · 앱 입력 +${n(s.앱)}분 · <b>판정 0분</b>`;
+    $('m-f2').textContent = `점선 = 재학습이 없으면 ${F0.toFixed(1)}건`;
     draw();
   }
 
@@ -100,6 +124,8 @@
 
   function inspect() {
     const i = S.zones++, b = P;
+    if (i % 100 === 0) paint(i / 100, PRE);
+    S.mh0 += P.T.M0 / 60; S.mh1 += perZone() / 60;
     const d = Math.random() < b.pi1 ? pois(b.n_punch) : 0;
     const ai = count(d, S.r), fp = pois(b.fp), wrong = count(ai, 1 - b.accept), added = count(d - ai, b.human);
     const n = ai + fp + added;
@@ -112,16 +138,17 @@
 
   function arrive(e) {
     S.photos++; S.returned++;
-    const ok = Math.random() < P.link, c = cells[Math.floor((S.returned - 1) / 100)];
-    if (c) c.setAttribute('fill', '#2A5BFF');
+    const ok = Math.random() < P.link;
+    paint(Math.floor((S.returned - 1) / 100), DONE);
     if (ok) { S.pairs++; S.scored += e.n; }
-    const dw = count(e.wrong, P.surface), dm = count(e.miss, P.surface);
-    S.post += dw + dm;
+    const dw = count(e.wrong, P.surface);
+    S.post += (e.wrong + e.miss) * P.surface;  // 지표 잡음을 줄이려고 기대값으로 더한다
     if (ok) {
-      S.linked += dw + dm; S.back += dw;
+      S.back += dw;
       for (let k = 0; k < dw; k++) {
         const cell = Math.floor(e.i / 100);
         el('circle', {class: 'lpdot', cx: Math.floor(cell / ROWS) * CELL + 5 + Math.random() * (CELL - 10), cy: cell % ROWS * CELL + 5 + Math.random() * (CELL - 10), r: 3.4}, shipDots);
+        if (s3) s3.mark(cell);
         say(`${zoneName()} · 도장 전에 반려한 자리에서 도장 후 결함 → 판단 채점`, 'bad');
       }
     }
@@ -142,7 +169,12 @@
     for (; carry >= 1; carry--) inspect();
     while (S.q.length && S.q[0].day <= S.day) arrive(S.q.shift());
     if (S.day % (P.retrain * 5) === 0) retrain();
-    if (S.day % 5 === 0) S.hist.push({r: S.r, s: S.scored, b: S.back, t: S.post ? S.linked / S.post : 0});
+    if (S.day % 5 === 0) {
+      S.wk.push([S.returned, S.post]);
+      const a = S.wk[Math.max(0, S.wk.length - 5)], n = S.returned - a[0];  // 최근 4주
+      S.f = n ? (S.post - a[1]) / n * 100 : null;
+      S.hist.push({r: S.r, s: S.scored, h: perZone() / 60, f: S.f});
+    }
     if (!still) {
       if (S.labels > before.labels) spawn(0);
       if (S.pairs > before.pairs) spawn(1);
@@ -150,7 +182,7 @@
       if (S.day % 2 === 0 && S.scored) spawn(3);
       if (S.day % 2 === 0 && S.retrains) spawn(4);
     }
-    if (S.day >= MAXDAY) { playing = false; finished = true; $('play').textContent = '▶ 시작'; say(`26주 끝 · 구역 ${fmt(S.zones)} · 채점된 판단 ${fmt(S.scored)}건`, 'good'); }
+    if (S.day >= MAXDAY) { playing = false; finished = true; $('play').textContent = '▶ 시작'; say(`26주 끝 · 구역 ${fmt(S.zones)} · 공수 −${fmt(S.mh0 - S.mh1)} 인·시`, 'good'); }
     draw();
   }
 
@@ -159,19 +191,19 @@
     packets.push({a, t: 0, el: el('circle', {class: a === 4 ? 'lppk ai' : 'lppk', r: 4.5}, dotsG)});
   }
 
-  function line(id, key, max) {
-    const h = S.hist, n = P.weeks;
-    if (!h.length) return;
-    const top = max || Math.max(...h.map(x => x[key]), 1), lo = key === 'r' ? 0.6 : 0;
-    const pts = h.map((x, i) => `${(i + 1) / n * 120},${28 - (x[key] - lo) / (top - lo) * 26}`).join(' ');
-    let p = $(id).firstChild;
-    if (!p) p = el('polyline', {fill: 'none', stroke: '#2A5BFF', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke'}, $(id));
-    p.setAttribute('points', pts);
+  // 작은 선 그래프. ref가 있으면 그 높이에 기준 점선을 긋고, from이 있으면 맨 왼쪽을 그 값에서 시작한다
+  function line(id, key, hi, lo = 0, ref = null, from = null) {
+    const g = $(id), top = hi || Math.max(...S.hist.map(x => x[key]), 1), y = v => 28 - (v - lo) / (top - lo) * 26;
+    if (ref !== null && !g.querySelector('line')) el('line', {x1: 0, x2: 120, y1: y(ref), y2: y(ref)}, g);
+    let pts = S.hist.map((x, i) => x[key] === null ? '' : `${(i + 1) / P.weeks * 120},${y(x[key])}`).join(' ');
+    if (!pts.trim()) return;
+    if (from !== null) pts = `0,${y(from)} ` + pts;
+    (g.querySelector('polyline') || el('polyline', {fill: 'none', stroke: '#2A5BFF', 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke'}, g)).setAttribute('points', pts);
   }
 
   function draw() {
     NODES.forEach(([k]) => numEl[k].textContent = k === 'retrains' ? S.retrains + '회' : fmt(S[k]));
-    const wk = Math.floor(S.day / 5);
+    const wk = Math.floor(S.day / 5), max = P.zones * P.weeks * P.T.M0 / 60;
     cWeek.textContent = S.day ? wk + '주차' : '시작 전';
     cBig.textContent = (S.r * 100).toFixed(0) + '%';
     $('week').textContent = S.day ? `${wk}주차 / ${P.weeks}주 · 검사 구역 ${fmt(S.zones)}` : '시작 전';
@@ -179,9 +211,14 @@
     $('m-r').textContent = (S.r * 100).toFixed(0) + '%';
     $('m-s').textContent = fmt(S.scored);
     $('m-b').textContent = fmt(S.back);
-    $('m-t').textContent = S.post ? (S.linked / S.post * 100).toFixed(0) + '%' : '–';
-    $('m-t2').textContent = S.post ? `도장 후 결함 ${fmt(S.post)}건 중 ${fmt(S.linked)}건` : '도장 전 기록과 이어진 결함';
-    line('s-r', 'r', 1); line('s-s', 's'); line('s-b', 'b'); line('s-t', 't', 1);
+    $('m-h').textContent = S.zones ? (perZone() / 60).toFixed(1) + '시간' : '–';
+    $('m-f').textContent = S.f === null ? '–' : S.f.toFixed(1) + '건';
+    $('b-0').style.width = S.mh0 / max * 100 + '%'; $('b-1').style.width = S.mh1 / max * 100 + '%';
+    $('v-0').textContent = fmt(S.mh0); $('v-1').textContent = fmt(S.mh1);
+    $('v-s').textContent = S.zones ? '−' + fmt(S.mh0 - S.mh1) + ' 인·시' : '–';
+    $('v-p').textContent = S.zones ? `−${((1 - S.mh1 / S.mh0) * 100).toFixed(1)}%` : '';
+    const m0 = P.T.M0 / 60, m2 = T().M2 / 60;
+    line('s-r', 'r', 1, .6); line('s-s', 's'); line('s-h', 'h', m0, m2 - (m0 - m2) * .1, m0, m0); line('s-f', 'f', F0 * 1.4, 0, F0);
   }
 
   function frame() {
@@ -217,10 +254,12 @@
   const fit = () => {
     main.style.zoom = 1;
     const room = innerHeight - main.getBoundingClientRect().top;
-    main.style.zoom = Math.max(.6, Math.min(1, room / main.scrollHeight));
+    main.style.zoom = Math.max(.6, Math.min(1, room / main.scrollHeight * .995));
   };
   addEventListener('resize', fit); fit();
   setRate(); reset(); setInterval(frame, 33);  // 탭이 뒤로 가도 멈추지 않게 타이머로 돌린다
 })();
 </script>
+{{ ui.three_map() }}
+<script type="module">import { mountLoop } from '/static/ship3d.js?v={{ JS_V() }}'; lpUse3d(mountLoop);</script>
 {% endblock %}
