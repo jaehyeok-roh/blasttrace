@@ -468,7 +468,7 @@ export function mountPlate(el, svg) {
   el.append(labels.domElement);
   const gut = svg.querySelector('.gut'), rects = [...svg.querySelectorAll('a > rect.z')], names = svg.querySelectorAll('.zl > g'), M = 1.7;
   const X0 = +gut.getAttribute('x'), Y0 = +gut.getAttribute('y'), CW = +rects[0].getAttribute('width') + 7, CH = +rects[0].getAttribute('height') + 7;
-  const W = +gut.getAttribute('width') / CW * M, H = +gut.getAttribute('height') / CH * M, hits = [];
+  const W = +gut.getAttribute('width') / CW * M, H = +gut.getAttribute('height') / CH * M, hits = [], blink = [];
   scene.add(box(-0.2, W + 0.2, -0.08, 0, -0.2, H + 0.2, new THREE.MeshStandardMaterial({ color: 0xDDE1E8 })));
 
   const unit = new THREE.BoxGeometry(M - 0.1, 0.03, M - 0.1), dot = new THREE.SphereGeometry(0.1, 12, 10);
@@ -478,6 +478,7 @@ export function mountPlate(el, svg) {
     m.position.set(x, 0.02, z);
     m.userData = { title: a.querySelector('title').textContent, href: a.getAttribute('href') };
     scene.add(m); hits.push(m);
+    if (r.classList.contains('flash')) blink.push(m);  // 폰에서 사진이 온 칸. 평면도의 깜빡임과 같은 4초
     scene.add(label([...names[i].querySelectorAll('.id, .st')].map(t => t.textContent).join(' '), '', x, 0.5, z));
   });
   svg.querySelectorAll('.dots circle').forEach(c => {
@@ -505,6 +506,11 @@ export function mountPlate(el, svg) {
   };
   new ResizeObserver(resize).observe(el); resize();
   clicks(el, renderer, camera, hits, (o, on) => o.scale.set(on ? 1.05 : 1, on ? 5 : 1, on ? 1.05 : 1));
-  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); labels.render(scene, camera); });
+  const t0 = performance.now();
+  renderer.setAnimationLoop(now => {
+    const t = now - t0;
+    blink.forEach(m => { m.visible = t > 4000 || t % 500 < 300; });
+    controls.update(); renderer.render(scene, camera); labels.render(scene, camera);
+  });
   el.dataset.ready = '1';
 }

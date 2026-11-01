@@ -1,3 +1,4 @@
+{% set PLAN_LEGEND = [('s-punch', '작업자 차례'), ('s-review', '검사원 차례'), ('s-fixed', '재검사 사진 기다림'), ('s-close', '통과 (✓ = Release)'), ('s-wait', '검사 전')] %}
 {% macro tag(s) %}<span class="tag c-{{ STATUS[s] }}">{{ s }}</span>{% endmacro %}
 
 {# 같은 블록·면을 검사 현황 ↔ 품질 분석으로 바꿔 본다. cur = 'home' | 'quality' #}
@@ -188,6 +189,31 @@
 </div>
 {% endmacro %}
 
+{# 평면도 ↔ 3D 철판(mountPlate). 둘 중 하나만 크게 보여 주고 고른 쪽을 key별로 기억한다. first = 처음 볼 쪽, 버튼은 plate_tabs로 제목 옆에 둔다.
+   인터넷이 없어 Three.js를 못 불러오면 버튼 없이 평면도만 나온다 #}
+{% macro plate_tabs() %}<nav class="seg" id="pl3v" style="display:none"><a href="#" data-v="3d">3D</a><a href="#" data-v="plan">평면도</a></nav>{% endmacro %}
+
+{% macro plate(zones, s, key, first, qv=None, dots=None, legend=None) %}
+<div class="pl3" id="pl3"><div class="s3" id="plate" data-s="{{ s }}"><div class="s3-tip" hidden></div>
+ <div class="pll">{% for k, name in legend or PLAN_LEGEND %}<span><svg class="dwg" viewBox="0 0 22 16">{% if k.startswith('d-') %}<circle class="{{ k }}" cx="11" cy="8" r="5.5"/>{% else %}<g class="{{ k }}"><rect class="z" x="0.5" y="0.5" width="21" height="15" rx="3"/></g>{% endif %}</svg>{{ name }}</span>{% endfor %}</div></div>
+ <div class="plw">{{ plan(zones, qv=qv, dots=dots, legend=legend) }}</div></div>
+{{ three_map() }}
+<script type="module">
+import { mountPlate } from '/static/ship3d.js?v={{ JS_V() }}';
+const w = document.getElementById('pl3'), tabs = document.getElementById('pl3v'), key = {{ key|tojson }};
+let mounted = false, saved = {{ first|tojson }};
+const show = v => {
+  w.dataset.v = v;
+  tabs.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.v === v));
+  try { localStorage.setItem(key, v); } catch (e) {}
+  if (v === '3d' && !mounted) { mounted = true; mountPlate(document.getElementById('plate'), w.querySelector('.plw svg')); }
+};
+tabs.onclick = e => { const a = e.target.closest('a'); if (a) { e.preventDefault(); show(a.dataset.v); } };
+try { saved = localStorage.getItem(key) || saved; } catch (e) {}
+try { show(saved); tabs.style.display = ''; } catch (e) { delete w.dataset.v; }
+</script>
+{% endmacro %}
+
 {# 블록 평면도를 도면처럼 그린다 (시연용 예시 도면). 칸 = 검사 구역(상태 색), 굵은 점선 = 늑판(웹)·거더, 가는 점선 = 론지,
    실선 = 판 외곽·이음. 블록의 일부 구간(CL 쪽 L1~L7, FR0부터 16프레임)만 그린다. 누르면 href + 구역 ID 로 간다. compact = 폰용 #}
 {#- 품질 분석 화면: qv = {구역: (칸 class, 칸 글자, 툴팁)}로 상태 대신 다른 값으로 칠한다. dots = {구역: [(가로 0~1, 세로 0~1, class, 툴팁)]}
@@ -233,8 +259,7 @@
  <text x="{{ (X0 + X1) / 2 }}" y="{{ Y1 + 25 }}" text-anchor="middle">{{ COLS * 2 }} × 850 = {{ '{:,}'.format(COLS * 2 * 850) }}</text>
  <text x="{{ X1 + 26 }}" y="{{ (Y0 + Y1) / 2 }}" text-anchor="middle" transform="rotate(-90 {{ X1 + 26 }} {{ (Y0 + Y1) / 2 }})">{{ ROWS * 2 }} × 850 = {{ '{:,}'.format(ROWS * 2 * 850) }}</text>
  <g class="lw"><path class="web" d="M24,416 H56"/></g><text class="h2" x="64" y="420">늑판(웹) · 거더</text>
- {%- for k, label in legend or [('s-punch', '작업자 차례'), ('s-review', '검사원 차례'), ('s-fixed', '재검사 사진 기다림'),
-     ('s-close', '통과 (✓ = Release)'), ('s-wait', '검사 전')] %}{% set x, y = [(190, 408), (380, 408), (24, 434), (190, 434), (380, 434)][loop.index0] %}
+ {%- for k, label in legend or PLAN_LEGEND %}{% set x, y = [(190, 408), (380, 408), (24, 434), (190, 434), (380, 434)][loop.index0] %}
  {%- if k.startswith('d-') %}<circle class="{{ k }}" cx="{{ x + 11 }}" cy="{{ y + 8 }}" r="5.5"/>
  {%- else %}<g class="{{ k }}"><rect class="z" x="{{ x }}" y="{{ y }}" width="22" height="16" rx="3"/></g>{% endif %}<text class="h2" x="{{ x + 30 }}" y="{{ y + 12 }}">{{ label }}</text>
  {%- endfor %}

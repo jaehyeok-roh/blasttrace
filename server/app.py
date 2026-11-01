@@ -18,6 +18,7 @@ import re
 import socket
 import sqlite3
 import statistics
+import threading
 import uuid
 import zipfile
 from collections import Counter
@@ -35,7 +36,7 @@ from markupsafe import Markup
 from PIL import Image, ImageOps
 
 from cv.align import align
-from cv.predict import predict
+from cv.predict import predict, yolo
 from llm.report import make_report
 from sensor.spectral import WAVELENGTHS, analyze
 from server import effect
@@ -60,6 +61,7 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOADS), name="uploads")
 tpl = Jinja2Templates(directory=WEB / "templates")
+threading.Thread(target=yolo, daemon=True).start()  # 모델을 처음 쓸 때 6초쯤 걸려서 서버를 켤 때 미리 불러 둔다
 
 # 블록 평면도: 가로 = 프레임(Fr.204~220), 세로 = 론지(L1~L7). 칸 하나(2프레임 x 2론지)가 검사 구역이다.
 # 프레임은 선미(A.P)부터 0.85 m 간격으로 센다. 길이 약 305 m LNG선에서 B12(No.3 화물창 앞쪽)는 대략 Fr.204~226이고,
@@ -1233,7 +1235,7 @@ def m_photo(zid: str, photo: UploadFile = File(...)):
             return go(f"/m/{zid}?msg=사진이 너무 어둡습니다. 조명(플래시)을 켜고 다시 찍어주세요")
         log(zid, f"{stage} 촬영 · 반사 {qa['glare']:.1%} → 재촬영 필요")
         return go(f"/m/{zid}?msg=반사가 많습니다({qa['glare']:.1%}). 각도를 바꿔 다시 찍어주세요")
-    out = predict(fpath(src))
+    out = predict(fpath(src), real=origin != "합성")
     pid = run("INSERT INTO photos(zone_id, kind, src, w, h, glare, blur, ok, model, ts, origin) VALUES(?,?,?,?,?,?,?,1,?,?,?)",
               zid, kind, src, w, h, qa["glare"], qa["blur"], out["model_version"], now(), origin)
     for c in out["candidates"]:

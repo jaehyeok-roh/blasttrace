@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% import '_ui.html' as ui %}
 {% block poll %}{% endblock %}{# 시뮬레이션 도중에 다시 그려지면 처음으로 돌아간다 #}
-{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>선순환 · 효과 분석</b>{% endblock %}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <b>효과 분석</b>{% endblock %}
 {% block body %}
 <div class="title lph">
  <div><h1>데이터 선순환 <span class="sub" style="font-size:18px">조선소에서 동시에 쓴다면</span></h1></div>
@@ -37,9 +37,9 @@
 <div class="panel"><div class="ph"><h2>바뀌는 지표</h2><span class="note">라벨링 추가 시간 0분</span></div><div class="pb lpt">
    <h3>↑ 높을수록 좋음</h3><h3>↓ 낮을수록 좋음</h3>
    <div><span>AI가 먼저 표시한 결함</span><b id="m-r">–</b><svg class="sp" id="s-r" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>재학습이 없으면 {{ '%.0f' % (sim.r0 * 100) }}%</small></div>
-   <div><span>구역 1건 공수</span><b id="m-h">–</b><svg class="sp" id="s-h" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>점선 = 현행 {{ '%.1f' % (sim.T.M0 / 60) }}시간</small></div>
+   <div><span>구역 1건 공수</span><div class="v"><b id="m-h">–</b><em id="d-h"></em></div><svg class="sp" id="s-h" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>점선 = 현행 {{ '%.1f' % (sim.T.M0 / 60) }}시간</small></div>
    <div><span>결과로 채점된 판단</span><b id="m-s">0</b><svg class="sp" id="s-s" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>판단과 결과가 이어진 수</small></div>
-   <div><span>100구역당 도장 후 결함</span><b id="m-f">–</b><svg class="sp" id="s-f" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-f2"></small></div>
+   <div><span>100구역당 도장 후 결함</span><div class="v"><b id="m-f">–</b><em id="d-f"></em></div><svg class="sp" id="s-f" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-f2"></small></div>
   </div></div>
  </div>
 </div>
@@ -96,7 +96,7 @@
   const T = () => P.T[scen];
   const perZone = () => T().M1 - (T().M1 - T().M2) * Math.min(1, (S.r - P.r0) / (P.scen['낙관'].rinf - P.r0));
   // 재학습이 없을 때 구역 100곳당 도장 후 결함 = 지적 × (AI도 사람도 놓침 + 잘못 반려) × 도장 후 드러날 확률
-  const F0 = P.pi1 * P.n_punch * ((1 - P.r0) * (1 - P.human) + P.r0 * (1 - P.accept)) * P.surface * 100;
+  const F = r => P.pi1 * P.n_punch * ((1 - r) * (1 - P.human) + r * (1 - P.accept)) * P.surface * 100, F0 = F(P.r0);
 
   function reset() {
     S = {day: 0, zones: 0, photos: 0, labels: 0, pairs: 0, scored: 0, back: 0, post: 0, retrains: 0, returned: 0, r: P.r0, q: [], hist: [], wk: [], f: null, mh0: 0, mh1: 0, feed: 0};
@@ -130,7 +130,7 @@
     const ai = count(d, S.r), fp = pois(b.fp), wrong = count(ai, 1 - b.accept), added = count(d - ai, b.human);
     const n = ai + fp + added;
     S.photos++; S.labels += n;
-    S.q.push({day: S.day + P.lag * 5, n, wrong, miss: d - ai - added, i});
+    S.q.push({day: S.day + P.lag * 5, n, wrong, r: S.r, i});
     const who = `검사원 ${rnd(people) + 1}`;
     if (S.feed++ % 11 === 0) say(n ? `${who} · ${zoneName()} · 지적 ${ai + added - wrong}건 확정${fp ? ', 헛후보 반려' : ''}` : `${who} · ${zoneName()} · 이상 없음`);
     else if (S.feed % 37 === 0) say(`작업자 ${rnd(people * 2) + 1} · ${zoneName()} · 조치 완료 등록`);
@@ -142,7 +142,7 @@
     paint(Math.floor((S.returned - 1) / 100), DONE);
     if (ok) { S.pairs++; S.scored += e.n; }
     const dw = count(e.wrong, P.surface);
-    S.post += (e.wrong + e.miss) * P.surface;  // 지표 잡음을 줄이려고 기대값으로 더한다
+    S.post += F(e.r) / 100;  // 표본 잡음 없이 그 구역을 검사할 때의 AI 수준으로 기대값을 더한다. 돌릴 때마다 숫자가 달라지지 않게
     if (ok) {
       S.back += dw;
       for (let k = 0; k < dw; k++) {
@@ -213,12 +213,14 @@
     $('m-b').textContent = fmt(S.back);
     $('m-h').textContent = S.zones ? (perZone() / 60).toFixed(1) + '시간' : '–';
     $('m-f').textContent = S.f === null ? '–' : S.f.toFixed(1) + '건';
+    $('d-h').textContent = S.zones ? `▼ ${((1 - perZone() / P.T.M0) * 100).toFixed(0)}%` : '';
+    $('d-f').textContent = S.f === null ? '' : `▼ ${Math.max(0, (1 - S.f / F0) * 100).toFixed(0)}%`;
     $('b-0').style.width = S.mh0 / max * 100 + '%'; $('b-1').style.width = S.mh1 / max * 100 + '%';
     $('v-0').textContent = fmt(S.mh0); $('v-1').textContent = fmt(S.mh1);
     $('v-s').textContent = S.zones ? '−' + fmt(S.mh0 - S.mh1) + ' 인·시' : '–';
     $('v-p').textContent = S.zones ? `−${((1 - S.mh1 / S.mh0) * 100).toFixed(1)}%` : '';
     const m0 = P.T.M0 / 60, m2 = T().M2 / 60;
-    line('s-r', 'r', 1, .6); line('s-s', 's'); line('s-h', 'h', m0, m2 - (m0 - m2) * .1, m0, m0); line('s-f', 'f', F0 * 1.4, 0, F0);
+    line('s-r', 'r', 1, .6); line('s-s', 's'); line('s-h', 'h', m0, m2 - (m0 - m2) * .1, m0, m0); line('s-f', 'f', F0 * 1.08, F(P.scen[scen].rinf) * 0.85, F0);  // 변화가 보이게 끝값 근처까지만 그린다. 실제 폭은 옆의 % 숫자
   }
 
   function frame() {

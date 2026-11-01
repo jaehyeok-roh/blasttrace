@@ -8,8 +8,8 @@
 </div>
 <div class="panel"><div class="ph"><h2>면 고르기 · 중앙 횡단면</h2><span class="note">블록이 뒤집혀 있어도 배 기준 이름으로 고릅니다</span></div>
  <div class="pb">{{ ui.section(bid, '/blocks/' ~ bid, s, surf_n) }}</div></div>
-<div class="panel"><div class="ph"><h2>BLK {{ bid }} · {{ SURFACES[s][0] }} · 검사 구역</h2><span class="note">{{ 'Z-07 외 구역 상태는 예시' if zones|selectattr('mock')|list else '아직 기록 없는 면' }}</span></div>
-  <div class="pb">{{ ui.plan(zones) }}</div>
+<div class="panel"><div class="ph"><h2>BLK {{ bid }} · {{ SURFACES[s][0] }} · 검사 구역</h2><div class="lpr"><span class="note">{{ 'Z-07 외 구역 상태는 예시' if zones|selectattr('mock')|list else '아직 기록 없는 면' }}</span>{{ ui.plate_tabs() }}</div></div>
+  <div class="pb">{{ ui.plate(zones, s, 'plate-view-home', 'plan') }}</div>
 </div>
 <div class="panel"><div class="ph"><h2>최근 기록</h2>{% if events|selectattr('mock')|list %}<span class="note">흐린 줄 = 미리 넣은 예시 기록</span>{% endif %}</div><div class="pb">
   {% for e in events %}<div class="row{{ ' mock' if e.mock }}"><span><b class="mono">{{ e.zone_id }}</b> {{ e.text }}</span><span class="note mono">{{ e.ts }}</span></div>

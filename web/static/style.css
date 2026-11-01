@@ -454,7 +454,9 @@ body.busy::after{content:'올리는 중…';position:fixed;inset:0;background:rg
 .lpt span{display:block;font-size:12.5px;color:var(--sub)}
 .lpt b{display:block;font:800 26px/1.2 Pretendard,'맑은 고딕',sans-serif}
 .lpt small{display:block;font-size:11.5px;color:var(--sub);line-height:1.3}
-.lpt .sp{display:block;width:100%;height:28px;margin:2px 0}
+.lpt .v{display:flex;align-items:baseline;gap:8px}
+.lpt .v em{font:700 16px Pretendard,'맑은 고딕',sans-serif;font-style:normal;color:var(--blue)}
+.lpt .sp{display:block;width:100%;height:34px;margin:2px 0}
 .lpt .sp line{stroke:#98A2B3;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 .lpf{height:100px;overflow:hidden}
 .lpf .row{display:block;margin:0;padding:4px 0;font-size:12.5px;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

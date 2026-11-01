@@ -7,6 +7,7 @@ import tempfile
 import zipfile
 
 os.environ["BT_DATA"] = tempfile.mkdtemp()
+os.environ["BT_WEIGHTS"] = "none"  # 팀원 PC와 같게 색 규칙으로 검사한다
 os.environ["BT_SPECTRAL"] = "1"  # 데모 화면에선 꺼져 있지만, 코드는 계속 검사한다
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -306,12 +307,20 @@ assert "90/10 계산 결과 · 충족" in dq and "미충족" not in dq and '<a c
 # 데이터 선순환: 시뮬레이션은 화면에서만 돌아서 실제 기록을 건드리지 않는다
 n_ev = bt.one("SELECT COUNT(*) n FROM events")["n"]
 lp = c.get("/loop").text
-assert "시뮬레이션" in lp and '"scen"' in lp and "선순환 · 효과 분석" in c.get("/").text and bt.one("SELECT COUNT(*) n FROM events")["n"] == n_ev
+assert "시뮬레이션" in lp and '"scen"' in lp and "효과 분석" in c.get("/").text and bt.one("SELECT COUNT(*) n FROM events")["n"] == n_ev
 assert "누적 공수" in lp and "낮을수록 좋음" in lp and '"M1"' in lp and 'href="/effect"' in lp and 'href="/loop"' in c.get("/effect").text and "mountLoop" in lp
+
+# YOLO 조각 묶기: 가까운 조각은 하나로, 점은 버리고, 확신도 순으로
+from cv.predict import regions  # noqa: E402
+import numpy as np  # noqa: E402
+s = np.zeros((100, 100))
+s[10:20, 10:20], s[10:20, 22:30], s[70:90, 70:90], s[50, 50] = 0.8, 0.6, 0.9, 0.99
+assert regions(s, 1000, 1000) == [dict(x=700, y=700, w=200, h=200, score=0.9), dict(x=100, y=100, w=200, h=100, score=0.8)]
 
 # 도면은 3D 모델과 같은 구형 탱크 LNG선이다
 hm, bp = c.get("/").text, c.get("/blocks/B12P").text
 assert "No.5 TANK" in hm and "멤브레인" not in hm + bp and "No.3 화물창 (구형 탱크)" in bp and "16 × 850" in bp
+assert 'id="plate" data-s="Z"' in bp and '"plate-view-home"' in bp and "재검사 사진 기다림" in bp  # 검사 현황도 3D ↔ 평면도, 기본은 평면도
 
 # 분광 측정 탭: 센서 CSV 형식에서 표면별 평균 곡선을 읽는다. 예시 값이면 표시한다
 sp = c.get("/spectral").text
