@@ -77,7 +77,7 @@
   const cBig = el('text', {class: 'c2', x: C[0], y: C[1] + 16, 'text-anchor': 'middle'}, ring);
   el('text', {class: 'c1', x: C[0], y: C[1] + 42, 'text-anchor': 'middle'}, ring).textContent = 'AI가 먼저 표시한 결함';
 
-  // 배: 평면 도면을 먼저 그려 두고 3D가 뜨면 바꾼다. 인터넷이 없어 3D를 못 불러오면 평면 도면이 그대로 남는다
+  // 배: 평면 도면을 먼저 그려 두고 3D가 뜨면 바꾼다. 3D를 못 띄우면(WebGL 없음) 평면 도면이 그대로 남는다
   const ship = $('ship'), W = COLS * CELL, H = ROWS * CELL;
   el('path', {class: 'hull', d: `M0,0 H${W + 8} Q${W + 62},${H * .12} ${W + 80},${H / 2} Q${W + 62},${H * .88} ${W + 8},${H} H0 Z`}, ship);
   const cells = [];

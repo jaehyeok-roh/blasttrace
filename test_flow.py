@@ -317,8 +317,9 @@ s = np.zeros((100, 100))
 s[10:20, 10:20], s[10:20, 22:30], s[70:90, 70:90], s[50, 50] = 0.8, 0.6, 0.9, 0.99
 assert regions(s, 1000, 1000) == [dict(x=700, y=700, w=200, h=200, score=0.9), dict(x=100, y=100, w=200, h=100, score=0.8)]
 
-# 도면은 3D 모델과 같은 구형 탱크 LNG선이다
+# 도면은 3D 모델과 같은 구형 탱크 LNG선이다. 3D는 인터넷 없이 뜬다
 hm, bp = c.get("/").text, c.get("/blocks/B12P").text
+assert "cdn.jsdelivr" not in hm + bp and c.get("/static/vendor/three/three.module.js").status_code == 200 and c.get("/static/vendor/three/addons/loaders/GLTFLoader.js").status_code == 200
 assert "No.5 TANK" in hm and "멤브레인" not in hm + bp and "No.3 화물창 (구형 탱크)" in bp and "16 × 850" in bp
 assert 'id="plate" data-s="Z"' in bp and '"plate-view-home"' in bp and "재검사 사진 기다림" in bp  # 검사 현황도 3D ↔ 평면도, 기본은 평면도
 
@@ -341,6 +342,44 @@ ok, dim = cv2.imencode(".png", cv2.convertScaleAbs(cv2.imread(S + "before.png"),
 c.post("/m/Z-23/photo", files={"photo": ("dim.png", dim.tobytes(), "image/png")})
 assert status("Z-23") == "촬영 불량" and "조명 부족" in c.get("/zones/Z-23").text
 assert all(bt.check_quality(S + n)["ok"] for n in ("before.png", "after.png", "painted.png", "painted_fixed.png"))
+
+# 사진 다시 찍기: 노트북 요청과 폰 취소 모두 판정 전 사진을 버리고 촬영으로 돌아간다. 판정이 끝난 사진은 되돌리지 않는다
+before_png, after_png = open(S + "before.png", "rb").read(), open(S + "after.png", "rb").read()
+up = lambda: c.post("/m/Z-22/photo", files={"photo": ("a.png", before_png, "image/png")})
+last = lambda: bt.one("SELECT id FROM photos WHERE zone_id='Z-22' ORDER BY id DESC")["id"]
+assert status("Z-22") == "검사 대기"
+up()
+p1 = last()
+assert status("Z-22") == "검토 대기" and "사진 다시 올리기" in c.get("/m/Z-22").text and "다시 찍기 요청" in c.get(f"/review/{p1}").text
+c.post(f"/review/{p1}/retake")
+assert status("Z-22") == "촬영 불량" and "검사원 재촬영 요청" in c.get("/m/Z-22").text and c.get(f"/review/{p1}", follow_redirects=False).status_code == 303
+assert not bt.q("SELECT 1 FROM candidates WHERE photo_id=?", p1)
+up()
+p2 = last()
+assert p2 != p1 and status("Z-22") == "검토 대기"
+c.post(f"/m/photos/{p2}/retake")
+assert status("Z-22") == "촬영 불량"
+up()
+p3 = last()
+c.post(f"/m/photos/{p2}/retake")  # 옛 화면에서 이미 버린 사진을 또 눌러도 새 사진은 그대로
+c.post(f"/review/{p2}", data={"note": "x"})  # 버린 사진은 판정할 수 없다
+assert status("Z-22") == "검토 대기" and not bt.one("SELECT reviewed FROM photos WHERE id=?", p2)["reviewed"]
+ks = [r["id"] for r in bt.q("SELECT id FROM candidates WHERE photo_id=?", p3)]
+c.post(f"/review/{p3}", data={"pick": ks, "note": "잔류 녹", "rc": ks, "reason": [""] * len(ks)})
+c.post(f"/m/photos/{p3}/retake")  # 판정이 끝난 사진
+c.post(f"/review/{p3}/retake")
+assert status("Z-22") == "Punch Open"
+f22 = bt.q("SELECT id FROM findings WHERE zone_id='Z-22'")[0]["id"]
+c.post(f"/m/findings/{f22}/action", data={"note": "재블라스팅"})
+rc2 = lambda: c.post(f"/m/findings/{f22}/recheck", files={"photo": ("b.png", after_png, "image/png")})
+fst = lambda: bt.one("SELECT status FROM findings WHERE id=?", f22)["status"]
+rc2()
+assert fst() == "recheck" and "재검사 사진 다시 올리기" in c.get("/m/Z-22").text and "재검사 사진 다시 요청" in c.get(f"/findings/{f22}").text
+c.post(f"/findings/{f22}/retake")
+assert fst() == "fixed" and not bt.q("SELECT 1 FROM rechecks WHERE finding_id=?", f22)
+rc2()
+c.post(f"/m/findings/{f22}/retake")
+assert fst() == "fixed"
 
 # 사진이 아닌 파일은 거절
 r = c.post("/m/Z-21/photo", files={"photo": ("a.txt", b"hello", "text/plain")})

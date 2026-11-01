@@ -11,6 +11,7 @@
 
 {% if z.status in ('검사 대기', '촬영 불량', 'Close-out') %}
 <form class="card" method="post" action="/m/{{ z.id }}/photo" enctype="multipart/form-data">
+ {% if why and not msg %}<div class="msg">{{ why }}</div>{% endif %}
  {% if post %}<h2>도장 후 촬영</h2>
  <p class="note">도장이 끝난 같은 구역을 찍어주세요. 도장 전 지적 위치를 맞춰 표시합니다.</p>
  {% else %}<h2>도장 전 촬영</h2>
@@ -21,7 +22,8 @@
 {% elif z.status == '검토 대기' %}
 <div class="card"><h2>검사원 확인 중</h2>
  {% if todo %}{{ ui.photo(todo.src, todo_c, origin=todo.origin) }}<p class="note" style="margin:10px 0 0">AI 후보 {{ todo_c|length }}건 · 노트북에서 검사원이 하나씩 지적/반려합니다.</p>
- {% else %}<p class="note">노트북에서 AI 후보를 보고 지적을 확정합니다.</p>{% endif %}</div>
+ {% else %}<p class="note">노트북에서 AI 후보를 보고 지적을 확정합니다.</p>{% endif %}
+ {% if todo %}<form method="post" action="/m/photos/{{ todo.id }}/retake" style="margin-top:10px"><button class="btn big" onclick="document.body.classList.add('busy')">사진 다시 올리기</button></form>{% endif %}</div>
 {% elif z.status == 'Release 완료' %}
 <div class="card"><h2>검사 끝</h2><p class="note" style="margin:0">도장 후 검사까지 끝난 구역입니다. 더 할 일이 없습니다. <a href="/m/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">평면도로 →</a></p></div>
 {% endif %}
@@ -46,7 +48,8 @@
  </form>
  {% elif f.status == 'recheck' %}
  <div class="card"><h2><span class="mono">I-{{ '%02d' % f.id }}</span> 판정 대기</h2><p class="note">노트북에서 검사원이 전후를 비교해 종결합니다.</p>
-  {% set r = rcs.get(f.id) %}{% if r %}{{ ui.photo(r.src, [], 'red', polys=[('이전 지적 위치', r.poly)] if r.poly else []) }}{% endif %}</div>
+  {% set r = rcs.get(f.id) %}{% if r %}{{ ui.photo(r.src, [], 'red', polys=[('이전 지적 위치', r.poly)] if r.poly else []) }}{% endif %}
+  <form method="post" action="/m/findings/{{ f.id }}/retake" style="margin-top:10px"><button class="btn big" onclick="document.body.classList.add('busy')">재검사 사진 다시 올리기</button></form></div>
  {% endif %}
  {% if spectral and f.kind == 'post' and f.status != 'closed' %}{% set s = last.get(f.id) %}
  <form class="card" method="post" action="/m/findings/{{ f.id }}/measure">

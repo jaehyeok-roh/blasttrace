@@ -213,6 +213,25 @@ def refresh(zid):
             return set_status(zid, name)
 
 
+def retake_photo(p, who):
+    """아직 판정하지 않은 사진을 버리고 다시 찍게 한다. 폰(잘못 올림)과 노트북(검사원 요청)이 같이 쓴다"""
+    run("UPDATE photos SET ok=0 WHERE id=?", p["id"])
+    run("DELETE FROM candidates WHERE photo_id=?", p["id"])
+    run("DELETE FROM links WHERE photo_id=?", p["id"])
+    set_status(p["zone_id"], "촬영 불량")
+    log(p["zone_id"], f"{'도장 후' if p['kind'] == 'post' else '도장 전'} 사진 {who} → 재촬영 필요")
+
+
+def retake_recheck(f, who):
+    """재검사 사진을 버리고 지적을 '조치 완료'로 되돌려 다시 찍게 한다"""
+    r = one("SELECT * FROM rechecks WHERE finding_id=? ORDER BY id DESC", f["id"])
+    run("UPDATE photos SET ok=0 WHERE id=?", r["photo_id"])
+    run("DELETE FROM rechecks WHERE id=?", r["id"])
+    run("UPDATE findings SET status='fixed' WHERE id=?", f["id"])
+    log(f["zone_id"], f"I-{f['id']:02d} 재검사 사진 {who} → 재촬영 필요")
+    refresh(f["zone_id"])
+
+
 def post_phase(z):
     """도장 전 검사가 끝나 다음 촬영이 도장 후 사진인 구역인가"""
     return z["status"] == "Close-out" or bool(one("SELECT 1 FROM photos WHERE zone_id=? AND kind='post'", z["id"]))
@@ -647,7 +666,7 @@ def next_step(z, todo, findings, post):
     ids = lambda s: " · ".join(f"I-{f['id']:02d}" for f in findings if f["status"] == s)  # 어느 지적 차례인지
     table = {
         "검사 대기": ("검사원", f"폰으로 {'도장 후' if post_phase(z) else '도장 전'} 사진 찍기", f"/m/{z['id']}", None),
-        "촬영 불량": ("검사원", "반사·어두움 때문에 다시 찍기", f"/m/{z['id']}", None),
+        "촬영 불량": ("검사원", "사진 다시 찍기", f"/m/{z['id']}", None),
         "검토 대기": ("검사원", "AI 후보 판정하기", f"/review/{todo['id']}" if todo else None, "AI 후보 보기"),
         "Punch Open": ("작업자", f"{ids('open')} 조치 후 완료 등록", None, None),
         "조치 완료": ("검사원", f"{ids('fixed')} 재검사 사진 찍기", None, None),
@@ -712,6 +731,8 @@ def review(request: Request, pid: int):
     p = one("SELECT * FROM photos WHERE id=?", pid)
     if not p:
         raise HTTPException(404, "없는 사진")
+    if not p["ok"]:  # 폰에서 취소했거나 재촬영을 요청한 사진
+        return go(f"/zones/{p['zone_id']}")
     cands = q("SELECT * FROM candidates WHERE photo_id=? ORDER BY score DESC", pid)
     picked = {r["cand_id"] for r in q("SELECT cand_id FROM findings WHERE photo_id=?", pid)}
     polys, hints = [], {}
@@ -742,7 +763,7 @@ def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
     if not p:
         raise HTTPException(404, "없는 사진")
     zid = p["zone_id"]
-    if p["reviewed"]:
+    if p["reviewed"] or not p["ok"]:
         return go(f"/zones/{zid}")
     why, notes, rejected = dict(zip(rc, reason)), dict(zip(rc, cnote)), []
     if any(c["id"] not in pick and why.get(c["id"]) not in REASONS for c in q("SELECT id FROM candidates WHERE photo_id=?", pid)):
@@ -774,6 +795,16 @@ def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
         set_status(zid, done)
         log(zid, f"검사원 확인 · 지적 없음 → {done}")
     return go(f"/zones/{zid}")
+
+
+@app.post("/review/{pid}/retake")
+def review_retake(pid: int):
+    p = one("SELECT * FROM photos WHERE id=?", pid)
+    if not p:
+        raise HTTPException(404, "없는 사진")
+    if p["ok"] and not p["reviewed"]:
+        retake_photo(p, "검사원 재촬영 요청")
+    return go(f"/zones/{p['zone_id']}")
 
 
 @app.get("/findings/{fid}")
@@ -809,6 +840,14 @@ def finding_reopen(fid: int):
     log(f["zone_id"], f"I-{fid:02d} 재검사 결과 미흡 → 재조치 (Punch Open)")
     refresh(f["zone_id"])
     return go(f"/zones/{f['zone_id']}")
+
+
+@app.post("/findings/{fid}/retake")
+def finding_retake(fid: int):
+    f = finding_or_404(fid)
+    if f["status"] == "recheck":
+        retake_recheck(f, "검사원 재촬영 요청")
+    return go(f"/findings/{fid}")
 
 
 @app.get("/zones/{zid}/export.csv")
@@ -1211,7 +1250,9 @@ def m_zone(request: Request, zid: str, msg: str = ""):
                 f["id"]) if f["status"] == "recheck" else None
         if r:
             rcs[f["id"]] = {"src": r["src"], "poly": json.loads(r["poly"])}
+    e = one("SELECT text FROM events WHERE zone_id=? ORDER BY id DESC", zid)
     return page(request, "m_zone.html", z=z, findings=findings, msg=msg, post=post_phase(z), last=last, todo=todo, rcs=rcs,
+                why=e["text"] if e and z["status"] == "촬영 불량" else "",
                 todo_c=q("SELECT * FROM candidates WHERE photo_id=? ORDER BY score DESC", todo["id"]) if todo else [],
                 sim=SENSOR_MODE == "sim", spectral=SPECTRAL)
 
@@ -1249,6 +1290,26 @@ def m_photo(zid: str, photo: UploadFile = File(...)):
         log(zid, "도장 전 사진과 위치 맞춤 · " + (f"성공 (대응점 {a['matches']}개)" if a["success"] else "실패 → 검사원 확인"))
     log(zid, f"AI 후보 {len(out['candidates'])}건 ({out['model_version']})")
     return go(f"/m/{zid}?msg=올렸습니다. 노트북에서 AI 후보를 확인하세요")
+
+
+@app.post("/m/photos/{pid}/retake")
+def m_retake(pid: int):
+    p = one("SELECT * FROM photos WHERE id=?", pid)
+    if not p:
+        raise HTTPException(404, "없는 사진")
+    if not p["ok"] or p["reviewed"]:  # 그사이 노트북에서 판정했으면 되돌리지 않는다
+        return go(f"/m/{p['zone_id']}?msg=이미 처리된 사진입니다")
+    retake_photo(p, "폰에서 취소")
+    return go(f"/m/{p['zone_id']}?msg=사진을 취소했습니다. 다시 찍어 주세요")
+
+
+@app.post("/m/findings/{fid}/retake")
+def m_finding_retake(fid: int):
+    f = finding_or_404(fid)
+    if f["status"] != "recheck":
+        return go(f"/m/{f['zone_id']}?msg=이미 처리된 지적입니다 (I-{fid:02d})")
+    retake_recheck(f, "폰에서 취소")
+    return go(f"/m/{f['zone_id']}?msg=재검사 사진을 취소했습니다. 다시 찍어 주세요")
 
 
 @app.post("/m/findings/{fid}/measure")

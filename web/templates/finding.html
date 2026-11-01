@@ -54,6 +54,7 @@
   {% if f.status == 'recheck' %}
   <form method="post" action="/findings/{{ f.id }}/close"><button class="btn pri" style="width:100%">같은 위치 확인 · Close-out</button></form>
   <form method="post" action="/findings/{{ f.id }}/reopen" style="margin-top:8px"><button class="btn" style="width:100%">아직 남아 있음 · 재조치 요청</button></form>
+  <form method="post" action="/findings/{{ f.id }}/retake" style="margin-top:8px"><button class="btn" style="width:100%" onclick="return confirm('재검사 사진을 버리고 폰에 다시 찍기를 요청합니다. 계속할까요?')">사진이 잘못됨 · 재검사 사진 다시 요청</button></form>
   {% elif f.status == 'closed' %}<p class="note">종결된 지적입니다.</p>
   {% else %}<p class="note">재검사 사진이 올라오면 판정할 수 있습니다.</p>{% endif %}
   <p class="note" style="margin-top:12px"><a href="/zones/{{ f.zone_id }}">구역 이력 보기 →</a></p>
