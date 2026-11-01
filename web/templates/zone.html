@@ -3,7 +3,7 @@
 {% block body %}
 <div class="title">
  <div><h1>구역 이력 · {{ z.id }} <span class="sub mono" style="font-size:15px;font-weight:500">{{ LOC(z.id) }}</span></h1><p>도장 전 촬영부터 지적, 조치, 재검사, 도장 후 검사까지 이 구역의 기록입니다.</p></div>
- <div class="tside"><a class="btn" href="/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">← 전체 평면도 · BLK {{ BLK(z.id) }}</a>
+ <div class="tside"><a class="btn" href="/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">← 전체 평면도 · BLK {{ BLK(z.id) }}</a>{% if findings %} <a class="btn pri" href="/zones/{{ z.id }}/report">보고서</a>{% endif %}
   <span>{{ ui.tag(z.status) }}{% if z.mock %} <span class="tag c-mute">예시 데이터</span>{% endif %}</span></div>
 </div>
 {% if z.mock and not events and z.status != '검사 대기' %}<div class="banner">지도 색을 보여 주려고 넣은 예시 구역이라 기록이 없습니다 · 기록이 있는 예시는 <a href="/zones/Z-03">Z-03</a> · <a href="/zones/Z-04">Z-04</a></div>{% endif %}
@@ -67,8 +67,4 @@
  {% for e in events %}<div class="row"><span>{{ e.text }}</span><span class="note mono">{{ e.ts }}</span></div>
  {% else %}<p class="note">기록이 없습니다.</p>{% endfor %}
 </div></details>
-{% if report %}
-<details class="panel more"><summary class="ph"><h2>보고서 초안 <span class="note mono">{{ report.model }} · {{ report.prompt_version }}</span></h2><span class="note">펼치기</span></summary>
- <div class="pb"><a class="btn" href="/zones/{{ z.id }}/export.csv">CSV 내보내기</a><pre class="report">{{ report.text }}</pre></div></details>
-{% endif %}
 {% endblock %}

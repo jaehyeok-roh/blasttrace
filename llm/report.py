@@ -58,7 +58,7 @@ def _llm(fx, res, cfg, cached):
         note += f" · 재요청으로 {len(res['repaired'])}문장 고침"
     if res["dropped"]:
         note += f" · 검증 규칙에 걸린 문장 {len(res['dropped'])}개 제외"
-    return {"text": _compose(fx, res["summary"]), "model": f"ollama/{cfg['model']}", "prompt_version": PROMPT_VERSION,
+    return {"text": _compose(fx, res["summary"]), "summary": res["summary"], "model": f"ollama/{cfg['model']}", "prompt_version": PROMPT_VERSION,
             "source": "llm", "note": note, "cached": cached, "llm_enabled": True, "dropped": [k for k, _ in res["dropped"]],
             "repaired": res.get("repaired", [])}
 

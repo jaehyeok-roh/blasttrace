@@ -1,0 +1,75 @@
+{% extends 'base.html' %}{% import '_ui.html' as ui %}
+{% block poll %}{% endblock %}{# 읽거나 인쇄하는 도중에 다시 그려지면 안 된다 #}
+{% block crumb %}<a href="/">{{ SHIP }}</a> / <a href="/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">BLK {{ BLK(z.id) }}</a> / <a href="/zones/{{ z.id }}">{{ z.id }}</a> / <b>보고서</b>{% endblock %}
+{% block body %}
+<div class="rp-bar noprint"><a class="btn" href="/zones/{{ z.id }}">← 구역 화면</a>
+ <span><a class="btn" href="/zones/{{ z.id }}/export.csv">CSV 내보내기</a> <button class="btn pri" onclick="print()">인쇄 · PDF로 저장</button></span></div>
+<article class="doc">
+ <header class="rp-h">
+  <div><h1>도장 검사 보고서</h1><p>{{ LOC(z.id) }}</p></div>
+  <table class="rp-meta">
+   <tr><th>문서 번호</th><td class="mono">BT-{{ BLK(z.id) }}-{{ z.id }}</td></tr>
+   <tr><th>호선 · 블록</th><td>{{ SHIP }} · BLK {{ BLK(z.id) }}</td></tr>
+   <tr><th>작성</th><td class="mono">{{ made }}</td></tr>
+   <tr><th>상태</th><td>{{ ui.tag(z.status) }} <b>초안</b>{% if z.mock %} · 시연용 예시{% endif %}</td></tr>
+  </table>
+ </header>
+
+ <section><h2>1. 종합 의견</h2>
+  {% for s in doc.opinion %}<p>{{ s }}</p>{% endfor %}
+  {% if ai %}<div class="rp-ai"><b>AI 요약 · {{ ai_model }}</b>{% for s in ai %}<p>{{ s }}</p>{% endfor %}<small>기록에서 문장만 만든 초안입니다. 판정이 아니며 검사원이 검토합니다.</small></div>{% endif %}
+ </section>
+
+ <section><h2>2. 핵심 수치</h2>
+  <div class="rp-n">
+   <div><b>{{ nums.pre + nums.post }}건</b><span>지적 (도장 전 {{ nums.pre }} · 도장 후 {{ nums.post }})</span></div>
+   <div><b>{{ nums.pre + nums.post - nums.open }} / {{ nums.pre + nums.post }}</b><span>종결</span></div>
+   <div><b>{{ nums.reworks }}회</b><span>재조치</span></div>
+   <div><b>{{ nums.recur }}건</b><span>같은 자리 재발</span></div>
+   <div><b>{{ nums.rej }}건</b><span>반려했던 자리의 결함</span></div>
+   <div>{% if dj %}<b>{{ '충족' if dj.ok else '미충족' }}</b><span>90/10 계산 결과 · {{ dj.n }}점</span>{% else %}<b>–</b><span>도막 두께 기록 없음</span>{% endif %}</div>
+  </div>
+ </section>
+
+ {% if photo and post %}
+ <section><h2>3. 도장 전 · 후 같은 자리 근거</h2>
+  <div class="pair">
+   <div><h3>도장 전 · {{ photo.ts }}</h3>{{ ui.photo(photo.src, marks, 'red', ids=True, polys=rej_marks, pcls='red prev', origin=photo.origin) }}</div>
+   <div><h3>도장 후 · {{ post.ts }}</h3>{{ ui.photo(post.src, post_marks, 'red', ids=True, polys=polys, pcls='red prev', origin=post.origin) }}</div>
+  </div>
+  <p class="note">{% if link %}{{ ('사진 정합 성공 · 대응점 %d개' % link.matches) if link.success else '자동 맞춤 실패 · 검사원 확인' }} · {% endif %}같은 자리 기준: {{ SAME_SPOT }}. 기록상 위치가 겹친다는 뜻이며 원인을 단정하지 않습니다.</p>
+ </section>
+ {% endif %}
+
+ <section><h2>{{ '4' if photo and post else '3' }}. 지적 현황</h2>
+  {% if cases %}<table class="lt rp-t">
+   <tr><th>지적</th><th>근거 사진</th><th>내용</th><th>조치</th><th>재검사</th><th>상태</th></tr>
+   {% for c in cases %}{% set f = c.f %}
+   <tr><td><b class="mono">I-{{ '%02d' % f.id }}</b><br><span class="note">{{ '도장 후' if f.kind == 'post' else '도장 전' }}</span></td>
+    <td class="rp-c">{{ ui.crop(c.src, c.w, c.h, f) }}</td>
+    <td>{{ f.note or '내용 미입력' }}{% if c.spot %}<br><span class="tag c-punch">{{ c.spot }}</span>{% endif %}
+     <br><span class="note">{{ '검사원 직접 추가' if f.score is none else 'AI 후보 채택 · 점수 %.2f' % f.score }}</span></td>
+    <td>{% for a in c.acts %}{{ a.note or '내용 미입력' }} <span class="note mono">{{ a.at }}</span>{% if not loop.last %}<br>{% endif %}{% else %}<span class="note">없음</span>{% endfor %}
+     {% if f.reworks %}<br><span class="tag c-punch">재조치 {{ f.reworks }}회</span>{% endif %}</td>
+    <td>{% if c.rc %}{{ '위치 자동 맞춤' if c.rc.success else '검사원 위치 확인' }} <span class="note mono">{{ c.rc.at }}</span>{% else %}<span class="note">없음</span>{% endif %}</td>
+    <td>{{ ui.tag(FINDING[f.status]) }}</td></tr>
+   {% endfor %}
+  </table>{% else %}<p>확정된 지적이 없습니다.</p>{% endif %}
+ </section>
+
+ <section><h2>{{ '5' if photo and post else '4' }}. 남은 조치</h2>
+  <table class="lt rp-t"><tr><th style="width:110px">담당</th><th>할 일</th><th style="width:220px">근거</th></tr>
+   {% for who, what, why in doc.todo %}<tr><td>{{ who }}</td><td>{{ what }}</td><td class="note">{{ why }}</td></tr>{% endfor %}
+  </table>
+ </section>
+
+ <section><h2>{{ '6' if photo and post else '5' }}. Hold Point 승인</h2>
+  <table class="lt rp-t"><tr><th style="width:230px">Hold Point</th><th>승인</th><th style="width:150px">서명</th></tr>
+   <tr><td>HP1 도장 전 표면처리 검사</td><td>{{ z.hp1 or '대기 · 승인 전 도장 착수 금지' }}</td><td class="rp-sign"></td></tr>
+   <tr><td>HP2 도장 후 검사</td><td>{{ z.hp2 or '대기' }}</td><td class="rp-sign"></td></tr>
+  </table>
+ </section>
+
+ <footer class="rp-f">이 문서는 앱 기록으로 만든 초안이며 검사원이 검토한 뒤 확정합니다. AI 후보 점수, 사진 정합, 분광 분류는 검사 판정이 아닙니다. 사진의 합성·시편 표시는 사진 출처입니다.</footer>
+</article>
+{% endblock %}

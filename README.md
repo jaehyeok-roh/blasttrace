@@ -128,6 +128,13 @@ AI는 다시 볼 곳만 제안하고, 지적·종결은 검사원(노트북 사�
 | `sensor/` | 상우 · 선우 | 분광 값 CSV 저장 |
 | `shared/` | 전원 | 주고받는 데이터 예시 |
 
+## 보고서
+
+구역 화면의 **보고서** 버튼(`/zones/{구역}/report`). 앱 기록으로 만든 문서입니다: 종합 의견, 핵심 수치, 도장 전·후 근거 사진, 지적 현황, 남은 조치, Hold Point 승인란. 화면의 **인쇄 · PDF로 저장**으로 A4 문서가 됩니다.
+
+- 종합 의견과 남은 조치는 기록에서 정해진 규칙으로 만들어서 인터넷·LLM 없이 나옵니다. 원인은 단정하지 않고 확인할 일로 적습니다.
+- 로컬 Ollama가 있으면 AI 요약이 따로 표시됩니다. 첫 요청은 뒤에서 만들고 다음에 열 때 붙습니다.
+
 ## 사진 다시 찍기
 
 - **폰**: AI 판정 전이면 [사진 다시 올리기], 재검사 판정 전이면 [재검사 사진 다시 올리기]로 올린 사진을 취소하고 다시 찍습니다.
@@ -145,7 +152,7 @@ YOLO를 쓰려면 `pip install ultralytics` 후 가중치를 `cv/weights/best_ru
 |---|---|---|
 | `cv.predict.predict(image_path, real)` | 실제 사진 = **YOLO11n-seg** `yolo11n-seg-v1`(동희 학습, 조각을 묶어 후보 5개까지), 합성 예시 사진·가중치 없는 PC = 색 규칙 `rust-color-v0` | `shared/predict.json` |
 | `cv.align.align(before_path, after_path)` | **진짜** SIFT + RANSAC (예선 실험 코드) | `shared/align.json` |
-| `llm.report.make_report(record)` | **가짜** (문장 틀) | 입력 `shared/record.json`, 반환 `shared/report.json` |
+| `llm.report.peek_report(record)` | 보고서 화면의 AI 요약. Ollama가 있으면 `make_report`가 뒤에서 만들고 다음에 열 때 붙음. 없으면 요약 없이 보고서가 나옴 | 입력 `shared/record.json`, 반환 `shared/report.json` |
 | `sensor.spectral.analyze(reflectance)` | **임시 규칙** `ratio-v0` (640/515 nm 반사율 비, RF 아님) | 입력 ch1\~ch12 반사율, 반환 `{"rust_index", "label", "model_version"}` |
 | `sensor.spectral.classify(rows)` | **선우 RF** (강판 / 도장 / 녹 3클래스, T3 32건 학습, 품질 지도 '분광 · 표면 상태') | 입력 측정 CSV 행(`r_F2`…`r_FXL`), 반환 `[(클래스, 확신도)]`, 모델 없으면 `None` |
 
@@ -153,7 +160,7 @@ YOLO를 쓰려면 `pip install ultralytics` 후 가중치를 `cv/weights/best_ru
 - 서버가 돌고 있으면 `http://localhost:8000/api/zones/Z-03/record`로 `make_report`의 실제 입력을 볼 수 있습니다.
 - 3D 프론트는 `http://localhost:8000/api/zones/Z-04/case`를 받습니다. 노션 "프론트 연동 데이터 구조안"의 Inspection Case 모양에
   사진·지적별 기록·Hold Point·같은 자리 결과를 덧붙였습니다. 예시는 `shared/case.json`(Z-04).
-- 화면에 모델 이름(`rust-color-v0`, `template-v0`)이 그대로 표시됩니다. 미리 넣은 기록에는 `예시` 태그가 붙습니다.
+- 화면에 모델 이름(`rust-color-v0`, `template-v1`)이 그대로 표시됩니다. 미리 넣은 기록에는 `예시` 태그가 붙습니다.
 
 ## 합치기 전 확인
 

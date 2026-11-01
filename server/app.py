@@ -37,7 +37,7 @@ from PIL import Image, ImageOps
 
 from cv.align import align
 from cv.predict import predict, yolo
-from llm.report import make_report
+from llm.report import make_report, peek_report
 from sensor.spectral import SURFACE_KO, WAVELENGTHS, analyze, classify, surface_model
 from server import effect
 from server.quality import check_quality
@@ -680,8 +680,8 @@ def next_step(z, todo, findings, post):
     return {"who": who, "text": text, "href": href if button else None, "button": button, "why": why}
 
 
-@app.get("/zones/{zid}")
-def zone(request: Request, zid: str):
+def zone_data(zid):
+    """구역 화면과 보고서가 같이 쓰는 기록 묶음"""
     z = zone_or_404(zid)
     # 반사·어두움으로 튕겼거나 다시 찍기로 버린 사진(ok=0)은 이 구역의 사진으로 보여 주지 않는다
     photo = one("SELECT * FROM photos WHERE zone_id=? AND kind='pre' AND ok=1 ORDER BY id DESC", zid)
@@ -706,7 +706,6 @@ def zone(request: Request, zid: str):
         rej_marks = [(f"반려 · {c['reason'] or '이유 없음'}", [[c["x0"], c["y0"]], [c["x1"], c["y0"]], [c["x1"], c["y1"]], [c["x0"], c["y1"]]])
                      for c in q("SELECT * FROM candidates WHERE decision='rejected' AND photo_id=?", photo["id"]) if c["id"] in hit]
     events = q("SELECT * FROM events WHERE zone_id=? ORDER BY id", zid)
-    report = make_report(record(zid)) if findings else None
     nums = {"pre": sum(f["kind"] == "pre" for f in findings), "post": sum(f["kind"] == "post" for f in findings),
             "open": sum(f["status"] != "closed" for f in findings), "reworks": sum(f["reworks"] or 0 for f in findings),
             "recur": sum(r["kind"] == "재발" for r in recurs), "rej": sum(r["kind"] == "반려" for r in recurs)}
@@ -719,13 +718,63 @@ def zone(request: Request, zid: str):
         cases.append({"f": f, "src": p["src"], "w": p["w"], "h": p["h"], "spot": spot.get(f["id"]),
                       "acts": [{"note": a["note"], "at": a["ts"]} for a in q("SELECT * FROM actions WHERE finding_id=? ORDER BY id", f["id"])],
                       "rc": rc and {"src": rc["src"], "poly": json.loads(rc["poly"]), "success": rc["success"], "matches": rc["matches"], "at": rc["ts"]}})
+    return dict(z=z, photo=photo, post=post, findings=findings, marks=marks, post_marks=post_marks, link=link, polys=polys,
+                recurs=recurs, rej_marks=rej_marks, events=events, nums=nums, cases=cases)
+
+
+@app.get("/zones/{zid}")
+def zone(request: Request, zid: str):
+    d = zone_data(zid)
+    z, photo, post, findings, nums = d["z"], d["photo"], d["post"], d["findings"], d["nums"]
     todo = one("SELECT * FROM photos WHERE zone_id=? AND ok=1 AND reviewed=0 ORDER BY id DESC", zid)
     step = 7 if post_phase(z) and z["status"] != "Close-out" else ZONE_STEP[z["status"]]  # 도장 후 사진을 버려도 ⑦ 단계
-    return page(request, "zone.html", step=step, z=z, photo=photo, post=post,
-                findings=findings, marks=marks, post_marks=post_marks, link=link, polys=polys,
-                recurs=recurs, rej_marks=rej_marks, events=events, report=report, nums=nums, cases=cases,
-                timeline=zone_timeline(z, photo, post, findings, nums), nxt=next_step(z, todo, findings, post),
-                mini=q("SELECT * FROM zones WHERE block=? AND id LIKE ? ORDER BY id", z["block"], f"{zid[0]}-%"))
+    return page(request, "zone.html", step=step, timeline=zone_timeline(z, photo, post, findings, nums),
+                nxt=next_step(z, todo, findings, post),
+                mini=q("SELECT * FROM zones WHERE block=? AND id LIKE ? ORDER BY id", z["block"], f"{zid[0]}-%"), **d)
+
+
+REPORT_NEXT = {"open": ("작업자", "조치 후 완료 등록"), "fixed": ("검사원", "같은 자리 재검사 촬영"), "recheck": ("검사원", "재검사 사진 확인 후 종결 또는 재조치")}
+
+
+def report_doc(d, dj):
+    """보고서의 종합 의견과 남은 조치. 기록에서 정해진 대로 만든다. 원인은 단정하지 않고 확인할 일로만 적는다"""
+    z, fs, nums, rs = d["z"], d["findings"], d["nums"], d["recurs"]
+    n, name = len(fs), lambda i: f"I-{i:02d}"
+    op = [f"지적 {n}건(도장 전 {nums['pre']}건 · 도장 후 {nums['post']}건) 중 {n - nums['open']}건을 종결했고 {nums['open']}건이 남아 있습니다."
+          if n else "이 구역에는 확정된 지적이 없습니다."]
+    todo = [(*REPORT_NEXT[f["status"]], name(f["id"])) for f in fs if f["status"] in REPORT_NEXT]
+    for r in rs:
+        if r["kind"] == "재발":
+            op.append(f"도장 후 지적 {name(r['post'])}: 도장 전 {name(r['pre'])} 자리에서 다시 나왔습니다. 표면처리와 조치 내용을 확인해야 합니다.")
+            todo.append(("품질관리자", f"{name(r['pre'])}의 표면처리·조치 기록 확인", f"같은 자리 재발 ({name(r['post'])})"))
+        elif r["kind"] == "반려":
+            op.append(f"도장 후 지적 {name(r['post'])}: 도장 전에 반려한 자리입니다(반려 이유: {r['reason'] or '미입력'}). 반려 판단을 다시 확인해야 합니다.")
+            todo.append(("품질관리자", f"'{r['reason'] or '이유 미입력'}' 반려 판단 재검토", f"반려했던 자리 ({name(r['post'])})"))
+    if z["hp2"]:
+        op.append("Hold Point 1·2가 모두 해제됐습니다.")
+    elif z["hp1"]:
+        op.append("Hold Point 1은 해제됐고 Hold Point 2는 대기 중입니다." + (" 미종결 지적을 마쳐야 Release할 수 있습니다." if nums["open"] else ""))
+    else:
+        op.append("Hold Point 1이 대기 중이라 도장을 시작할 수 없습니다.")
+    if dj and not dj["ok"]:
+        op.append(f"도막 두께 90/10 계산 결과는 미충족입니다(측정 {dj['n']}점, 최소 {dj['mn']:g} µm). 최종 판정은 검사원이 합니다.")
+        todo.append(("작업자 · 검사원", "미달 부위 보수 후 도막 두께 재측정", "90/10 계산 결과 미충족"))
+    if not dj:
+        todo.append(("검사원", "도막 두께 측정값 입력", "이 구역에 기록 없음"))
+    todo.append(("검사원", "조도·염분·환경 계측값 첨부", "앱 기록에 없음"))
+    return dict(opinion=op, todo=todo)
+
+
+@app.get("/zones/{zid}/report")
+def zone_report(request: Request, zid: str):
+    d = zone_data(zid)
+    dj = dft_judge([r["um"] for r in q("SELECT um FROM dft WHERE zone_id=?", zid)])
+    rec = record(zid)
+    rep = peek_report(rec)  # 화면은 기다리지 않는다. LLM 요약은 뒤에서 만들어 두고, 다음에 열 때 붙는다
+    if rep["source"] == "template" and rep["llm_enabled"] and d["findings"]:
+        threading.Thread(target=make_report, args=(rec,), daemon=True).start()
+    ai = [v for v in rep.get("summary", {}).values() if v]
+    return page(request, "report.html", doc=report_doc(d, dj), dj=dj, made=now(), ai=ai, ai_model=rep["model"], **d)
 
 
 @app.get("/review/{pid}")

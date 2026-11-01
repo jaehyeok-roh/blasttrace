@@ -8,6 +8,7 @@ import zipfile
 
 os.environ["BT_DATA"] = tempfile.mkdtemp()
 os.environ["BT_WEIGHTS"] = "none"  # 팀원 PC와 같게 색 규칙으로 검사한다
+os.environ["BT_LLM"] = "off"  # Ollama가 있어도 없어도 같게
 os.environ["BT_SPECTRAL"] = "1"  # 데모 화면에선 꺼져 있지만, 코드는 계속 검사한다
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -117,7 +118,7 @@ assert "Hold Point 1 해제" in c.get("/zones/Z-03").text and "도장 착수 금
 
 # ⑥ 이력·보고서·내보내기
 z = c.get("/zones/Z-03").text
-assert "보고서 초안" in z and f"I-{f3:02d}" in z
+assert "/zones/Z-03/report" in z and f"I-{f3:02d}" in z
 csv_text = c.get("/zones/Z-03/export.csv").text
 assert f"I-{f3:02d}" in csv_text and "성공" in csv_text
 
@@ -174,7 +175,8 @@ assert rc4["success"] and err4 < 0.01, (rc4["matches"], err4)
 c.post(f"/findings/{f4}/close")
 assert status("Z-03") == "Release 완료" and bt.one("SELECT hp2 FROM zones WHERE id='Z-03'")["hp2"]
 z = c.get("/zones/Z-03").text
-assert "도장 후 사진" in z and "도장 전 I-" in z and "[도장 후 · Close-out] 녹 번짐" in z
+assert "도장 후 사진" in z and "도장 전 I-" in z and "[도장 후 · Close-out] 녹 번짐" in bt.peek_report(bt.record("Z-03"))["text"]
+assert "Hold Point 1·2가 모두 해제" in c.get("/zones/Z-03/report").text
 
 # Z-04 예시: 도장 후 지적이 보수 전 분광(녹 신호)까지 들어 있다. 재검사 사진 + 보수 후 분광만 올리면 Release 완료
 f5 = bt.one("SELECT f.id FROM findings f JOIN photos p ON p.id = f.photo_id WHERE f.zone_id='Z-04' AND p.kind='post'")["id"]
@@ -408,6 +410,11 @@ assert fst() == "fixed" and not bt.q("SELECT 1 FROM rechecks WHERE finding_id=?"
 rc2()
 c.post(f"/m/findings/{f22}/retake")
 assert fst() == "fixed"
+
+# 보고서: 기록으로 만든 문서(결론·수치·근거·남은 조치·승인란). LLM이 없어도 나오고 원인을 단정하지 않는다
+rp = c.get("/zones/Z-04/report").text
+assert all(w in rp for w in ("도장 검사 보고서", "종합 의견", "I-03", "같은 자리 재발", "먼지·오염", "Hold Point 승인", "남은 조치", "인쇄")) and "합격" not in rp
+assert 'href="/zones/Z-04/report"' in c.get("/zones/Z-04").text and c.get("/zones/Z-18/report").status_code == 200
 
 # 사진이 아닌 파일은 거절
 r = c.post("/m/Z-21/photo", files={"photo": ("a.txt", b"hello", "text/plain")})
