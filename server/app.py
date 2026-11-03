@@ -411,7 +411,7 @@ def phone_urls(request: Request):
 
 def qr_svg(text):
     """행사장에서 주소를 손으로 치지 않게. 크기는 CSS(.qr svg)로 정한다"""
-    return segno.make(text, error="m").svg_inline(scale=3, border=1, dark="#111111")
+    return segno.make(text, error="m").svg_inline(scale=3, border=1, dark="#111111", omitsize=True)
 
 
 def page(request, name, **ctx):
@@ -1176,7 +1176,10 @@ def effect_page(request: Request):
         wf.append((name, run, run + b - a, "up" if b - a > 0.5 else "dn" if b - a < -0.5 else "zero"))
         run += b - a
     wf.append(("BlastTrace", 0, r["T"]["M1"], "tot1"))
+    # 앱 입력을 아직 재지 않아 0분일 때, 한 번에 2분이면 얼마나 줄어드는지 (질문 대비)
+    m1 = sum(sum(u.values()) for u in effect.minutes(effect.apply(dict(r["used"], tau_app=2), effect.SCENARIOS["기본"])))
     return page(request, "effect.html", nav="effect", r=r, meas=meas, min_n=MIN_N, base=effect.PARAMS, wf=wf,
+                app2=(1 - m1 / r["T"]["M0"]) * 100,
                 ev=[(k, ev[k]) for k in ("실측", "규정·공개 자료", "조선소 값 필요", "가정")],
                 spec=[(k, effect.LABEL[k], r["used"][k], src[k]) for k in effect.PARAMS])
 

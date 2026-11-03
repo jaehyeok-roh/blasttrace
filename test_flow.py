@@ -266,12 +266,13 @@ assert "라벨 출처" in c.get("/data").text and "origin" in zipfile.ZipFile(io
 
 # 효과 분석: 상우 공수 모델 v2/v2.1과 같은 숫자(기본값), 앱 기록 값은 시편·현장 사진만 센다
 from server import effect  # noqa: E402
-e = effect.report({"tau_app": 0})  # 앱 입력(새로 생긴 일)을 빼면 상우 모델과 같은 값
+e = effect.report()  # 기본값 = 상우 모델 = 발표 숫자(앱 입력 0분, 환경 로거는 향후 계획이라 plus로 따로)
 assert [round(e["T"][m]) for m in ("M0", "M1", "M2")] == [1134, 853, 809] and round(e["eta01"], 1) == 24.8
+assert [round(e["range"][s], 1) for s in ("보수", "기본", "낙관")] == [17.4, 24.8, 30.8]
 assert [round(e["risk"][m]) for m in ("M0", "M1", "M2")] == [29, 26, 17] and e["n_dft"] == 248
 assert round(e["plus"]["T"]) == 716 and round(e["plus_ai"]["T"]) == 673 and round(e["saved"]["판정"]) == 0
-e = effect.report()  # 기본: 앱 입력 2분 × (홀드포인트 1 + 재검 라운드마다 2명)이 더해진다
-assert round(e["T"]["M1"]) == 856 and round(e["per"]["M1"][9], 1) == 3.3 and e["per"]["M0"][9] == 0
+e2 = effect.report({"tau_app": 2})  # 앱 입력 2분 × (홀드포인트 1 + 재검 라운드마다 2명)이 더해진다
+assert round(e2["T"]["M1"]) == 856 and round(e2["per"]["M1"][9], 1) == 3.3 and e2["per"]["M0"][9] == 0
 assert e["scen"]["기본"]["M1"] == e["T"]["M1"] and e["scen"]["보수"]["M1"] > e["T"]["M1"] > e["scen"]["낙관"]["M1"]
 assert all(v["M2"] < v["M1"] and round(v["saved"]["판정"]) == 0 for v in e["scen"].values())
 assert bt.measured()["pi1"]["n"] == 0  # 지금까지 판정한 사진은 전부 합성이라 세지 않는다

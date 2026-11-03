@@ -105,7 +105,7 @@
     $('feed').replaceChildren(); ['r', 's', 'h', 'f'].forEach(k => $('s-' + k).replaceChildren());
     say('시작을 누르면 검사원·작업자의 기록이 올라옵니다.', 'idle');
     const s = T().saved, n = v => Math.round(v);
-    $('where').innerHTML = `구역 1건에서 기록·전사 −${n(s.기록)}분 · 위치 찾기 −${n(s.위치)}분 · 분쟁 −${n(s.분쟁)}분 · 앱 입력 +${n(s.앱)}분 · <b>판정 0분</b>`;
+    $('where').innerHTML = `구역 1건에서 기록·전사 −${n(s.기록)}분 · 위치 찾기 −${n(s.위치)}분 · 분쟁 −${n(s.분쟁)}분${n(s.앱) ? ` · 앱 입력 +${n(s.앱)}분` : ''} · <b>판정 0분</b>`;
     $('m-f2').textContent = `점선 = 재학습이 없으면 ${F0.toFixed(1)}건`;
     draw();
   }

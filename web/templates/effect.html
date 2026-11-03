@@ -16,9 +16,10 @@
    <span class="sub">{{ sub }}</span></div>
  {%- endfor %}
  </div>
- <p class="eff-line">가정을 보수적으로 잡으면 −{{ '%.0f' % r.range['보수'] }}%, 낙관적으로 잡으면 −{{ '%.0f' % r.range['낙관'] }}%입니다.
-  사진 찍고 올리고 버튼을 누르는 것처럼 BlastTrace가 새로 만드는 일(구역당 약 {{ r.per.M1[9]|round|int }}분)도 넣어서 계산했습니다.
-  환경 로거(온습도·이슬점 자동 기록)까지 붙이면 {{ '%.1f' % (r.plus.T / 60) }}시간, −{{ '%.0f' % r.plus.eta }}%가 되지만 이 기능은 아직 없습니다.</p>
+ <p class="eff-line">가정을 보수적으로 잡으면 −{{ '%.1f' % r.range['보수'] }}%, 낙관적으로 잡으면 −{{ '%.1f' % r.range['낙관'] }}%입니다.
+  {% if r.per.M1[9] > 0.5 %}사진 찍고 올리고 버튼을 누르는 것처럼 BlastTrace가 새로 만드는 일(구역당 약 {{ r.per.M1[9]|round|int }}분)도 넣어서 계산했습니다.
+  {%- else %}사진 찍고 올리고 버튼을 누르는 시간(BlastTrace가 새로 만드는 일)은 아직 재지 않아 0분으로 두었습니다. 한 번에 2분이면 −{{ '%.1f' % app2 }}%입니다.{% endif %}<br>
+  <b>향후 계획</b> · 환경 로거(온습도·이슬점 자동 기록)를 붙이면 {{ '%.1f' % (r.plus.T / 60) }}시간, −{{ '%.1f' % r.plus.eta }}%까지 줄어듭니다. 위 숫자에는 넣지 않았습니다.</p>
 </div></div>
 
 {%- set total = ev|map(attribute=1)|sum %}{% set EVC = {'실측': 'meas', '규정·공개 자료': 'pub', '조선소 값 필요': 'yard', '가정': 'assume'} %}
@@ -46,7 +47,7 @@
   <text x="40" y="20">세로축은 {{ ymin|int }}분부터 (합계 막대 아래 물결 = 생략)</text>
  </svg>
  <p class="eff-line">줄어든 {{ h.M0|round|int - h.M1|round|int }}분은 기록·전사·누락 보완 {{ s['기록']|round|int }}분, 위치 찾기 {{ s['위치']|round|int }}분, 분쟁 {{ s['분쟁']|round|int }}분에서 나오고 <b>판정 시간은 0분</b>입니다.
-  판정은 검사원이 그대로 하고, 근거를 찾고 적고 옮기는 시간만 줄어듭니다. 주황 막대는 앱 입력처럼 새로 생긴 일입니다.</p>
+  판정은 검사원이 그대로 하고, 근거를 찾고 적고 옮기는 시간만 줄어듭니다.{% if r.per.M1[9] > 0.5 %} 주황 막대는 앱 입력처럼 새로 생긴 일입니다.{% endif %}</p>
 </div></div>
 
 <div class="panel"><div class="ph"><h2>재블라스팅 위험</h2><span class="note">모의 20,000회</span></div><div class="pb">
