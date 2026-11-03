@@ -22,7 +22,7 @@
   <span>재조치</span><b>{{ nums.reworks }}회</b>
   <span>같은 자리</span><b>재발 {{ nums.recur }} · 반려했던 자리 {{ nums.rej }}</b>
   <span>HP1</span><b>{% if z.hp1 %}<span class="tag c-release">해제</span> <span class="note">{{ z.hp1 }}</span>{% else %}<span class="tag c-wait">대기</span> <span class="note">승인 전 도장 착수 금지</span>{% endif %}</b>
-  <span>HP2</span><b>{% if z.hp2 %}<span class="tag c-release">해제</span> <span class="note">{{ z.hp2 }}</span>{% else %}<span class="tag c-wait">대기</span> <span class="note">Release 전 다음 공정 금지</span>{% endif %}</b>
+  <span>HP2</span><b>{% if z.hp2 %}<span class="tag c-release">해제</span> <span class="note">{{ z.hp2 }}</span>{% else %}<span class="tag c-wait">대기</span> <span class="note">최종 종결 전 다음 공정 금지</span>{% endif %}</b>
  </div></div>
 </div></div>
 

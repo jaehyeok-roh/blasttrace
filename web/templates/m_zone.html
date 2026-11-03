@@ -5,7 +5,7 @@
 <a class="note" href="/m/blocks/{{ BLK(z.id) }}?s={{ z.id[0] }}">← 평면도로</a>
 <h1>{{ z.id }} <span class="note mono" style="font-size:13px">{{ LOC(z.id) }}</span></h1>
 <p style="margin:0 0 12px">{{ ui.tag(z.status) }}</p>
-<p class="note" style="margin:-4px 0 12px">{% if not z.hp1 %}Hold Point 1 · 검사원 승인 전 <b>도장 착수 금지</b>{% elif not z.hp2 %}Hold Point 1 해제 · 도장 가능 · 도장 후 검사(HP2) 대기{% else %}Hold Point 2 해제 · Release 완료{% endif %}</p>
+<p class="note" style="margin:-4px 0 12px">{% if not z.hp1 %}Hold Point 1 · 검사원 승인 전 <b>도장 착수 금지</b>{% elif not z.hp2 %}Hold Point 1 해제 · 도장 가능 · 도장 후 검사(HP2) 대기{% else %}Hold Point 2 해제 · 최종 종결{% endif %}</p>
 {% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
 {% if z.mock and not findings and z.status != '검사 대기' %}<p class="note">지도 색을 보여 주려고 넣은 예시 구역입니다. 기록이 있는 예시는 Z-03 · Z-04</p>{% endif %}
 

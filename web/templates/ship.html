@@ -10,7 +10,7 @@
  <div class="pb">{{ ui.ship('/blocks/') }}</div></div>
 <div class="cols" style="grid-template-columns:1fr 1fr">
  {% for b in blocks %}<div class="panel"><div class="ph"><h2>BLK {{ b.id }} <span class="note">{{ b.side }} 선저</span></h2><span class="note">구역 {{ b.n }}개 · 미종결 지적 {{ b.open }}건</span></div><div class="pb">
-  <div class="legend" style="margin:0 0 14px">{% for s, n in b.counts.items() if n %}<span class="tag c-{{ STATUS[s] }}">{{ s }} {{ n }}</span>{% endfor %}</div>
+  <div class="legend" style="margin:0 0 14px">{% for s, n in b.counts.items() if n %}<span class="tag c-{{ STATUS[s] }}">{{ SHOW.get(s, s) }} {{ n }}</span>{% endfor %}</div>
   <a class="btn blue" style="width:100%" href="/blocks/{{ b.id }}">평면도 열기 →</a></div></div>{% endfor %}
 </div>
 {% endblock %}

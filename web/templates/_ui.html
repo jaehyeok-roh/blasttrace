@@ -1,5 +1,5 @@
-{% set PLAN_LEGEND = [('s-punch', '작업자 차례'), ('s-review', '검사원 차례'), ('s-fixed', '재검사 사진 기다림'), ('s-close', '통과 (✓ = Release)'), ('s-wait', '검사 전')] %}
-{% macro tag(s) %}<span class="tag c-{{ STATUS[s] }}">{{ s }}</span>{% endmacro %}
+{% set PLAN_LEGEND = [('s-punch', '작업자 차례'), ('s-review', '검사원 차례'), ('s-fixed', '재검사 사진 기다림'), ('s-close', '통과 (✓ = 최종 종결)'), ('s-wait', '검사 전')] %}
+{% macro tag(s) %}<span class="tag c-{{ STATUS[s] }}">{{ SHOW.get(s, s) }}</span>{% endmacro %}
 
 {# 같은 블록·면을 검사 현황 ↔ 품질 분석으로 바꿔 본다. cur = 'home' | 'quality' #}
 {% macro effect_views(cur) %}<nav class="seg view" aria-label="보기 바꾸기"><a class="{{ 'on' if cur == 'loop' }}" href="/loop">데이터 선순환</a><a class="{{ 'on' if cur == 'effect' }}" href="/effect">공수 상세</a></nav>{% endmacro %}
@@ -49,7 +49,7 @@
 {# 시연 흐름 ①~⑦ 진행 막대. cur = 지금 단계 (0이면 전체 흐름만 보여 준다) #}
 {% macro steps(cur) %}
 {% set items = [('촬영', '폰으로 구역 촬영'), ('AI 후보', '다시 볼 곳 제안'), ('지적 확정', '검사원 판단'),
-                ('조치', '작업자 완료 등록'), ('재검사', '같은 위치 비교'), ('종결 · 승인', 'Close-out · HP1 해제'),
+                ('조치', '작업자 완료 등록'), ('재검사', '같은 위치 비교'), ('종결 · 승인', 'HP1 해제 · 도장 착수'),
                 ('도장 후 검사', '같은 자리 연결 · HP2')] %}
 <ol class="steps">{% for t, d in items %}<li class="{{ 'on' if loop.index == cur else ('done' if loop.index < cur else '') }}"><b>{{ loop.index }}</b><span>{{ t }}<small>{{ d }}</small></span></li>{% endfor %}</ol>
 {% endmacro %}
@@ -233,7 +233,7 @@ try { show(saved); tabs.style.display = ''; } catch (e) { delete w.dataset.v; }
  {%- for k in range(4, COLS * 2, 4) %}<line class="web" x1="{{ X0 + k * CW / 2 }}" x2="{{ X0 + k * CW / 2 }}" y1="{{ Y0 - 8 }}" y2="{{ Y1 + 8 }}"/>{% endfor %}
   <line class="web" x1="{{ X0 - 10 }}" x2="{{ X1 + 10 }}" y1="{{ Y0 + CH * 1.5 }}" y2="{{ Y0 + CH * 1.5 }}"/>
  </g>
- {%- for z in zones %}{% set r, c = CELL(z.id) %}{% set v = qv[z.id] if qv else ('s-' ~ STATUS[z.status], '', z.status) %}
+ {%- for z in zones %}{% set r, c = CELL(z.id) %}{% set v = qv[z.id] if qv else ('s-' ~ STATUS[z.status], '', SHOW.get(z.status, z.status)) %}
  <a class="{{ v[0] }}" href="{{ href }}{{ z.id }}"><rect class="z{{ ' cur' if z.id == cur }}" x="{{ X0 + c * CW + 3.5 }}" y="{{ Y0 + r * CH + 3.5 }}" width="{{ CW - 7 }}" height="{{ CH - 7 }}" rx="5"/><title>{{ z.id }} · {{ LOC(z.id) }} · {{ v[2] }}</title></a>
  {%- endfor %}
  <g class="ax">

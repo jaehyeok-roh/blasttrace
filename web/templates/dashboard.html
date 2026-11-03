@@ -4,7 +4,7 @@
 <div class="title">
  <div><h1>검사 현황 · BLK {{ bid }} <span class="sub" style="font-size:18px">{{ BLOCKS[bid] }} 선저 · {{ SURFACES[s][0] }}</span></h1><p>단면에서 면을 고르고, 평면도의 칸을 누르면 구역 이력을 봅니다. 폰에서 올린 내용이 바로 반영됩니다.</p></div>
  <div class="tside">{{ ui.views(bid, s, 'home') }}
-  <div class="legend">{% for st, n in counts.items() if n %}<span class="tag c-{{ STATUS[st] }}">{{ st }} {{ n }}</span>{% endfor %}</div></div>
+  <div class="legend">{% for st, n in counts.items() if n %}<span class="tag c-{{ STATUS[st] }}">{{ SHOW.get(st, st) }} {{ n }}</span>{% endfor %}</div></div>
 </div>
 <div class="panel"><div class="ph"><h2>면 고르기 · 중앙 횡단면</h2><span class="note">블록이 뒤집혀 있어도 배 기준 이름으로 고릅니다</span></div>
  <div class="pb">{{ ui.section(bid, '/blocks/' ~ bid, s, surf_n) }}</div></div>

@@ -7,7 +7,7 @@
   <p>AI는 다시 볼 곳만 제안합니다. 후보마다 검사원이 <b>지적</b> 또는 <b>반려 + 이유</b>를 고르고, 그 판단이 그대로 학습 라벨이 됩니다. 점수는 정답 확률이 아닙니다.</p></div>
  <span><span class="tag c-review">후보 {{ cands|length }}건</span> <span class="tag c-mute mono">{{ p.model }}</span></span>
 </div>
-<form method="post" class="cols" onsubmit="return !!(this.querySelector('[name=pick]:checked') || this.querySelector('input.manual')) || confirm({{ ('지적 없이 Release 완료합니다. Hold Point 2가 바로 해제됩니다. 계속할까요?' if p.kind == 'post' else '지적 없이 Close-out합니다. Hold Point 1(도장 착수 승인)이 바로 해제됩니다. 계속할까요?')|tojson|forceescape }})">
+<form method="post" class="cols" onsubmit="return !!(this.querySelector('[name=pick]:checked') || this.querySelector('input.manual')) || confirm({{ ('지적 없이 최종 종결합니다. Hold Point 2가 바로 해제됩니다. 계속할까요?' if p.kind == 'post' else '지적 없이 종결합니다. Hold Point 1(도장 착수 승인)이 바로 해제됩니다. 계속할까요?')|tojson|forceescape }})">
  <div class="panel"><div class="ph"><h2>{{ '도장 후 사진' if p.kind == 'post' else '도장 전 사진' }}</h2><span class="note mono">반사 {{ '%.1f' % (p.glare * 100) }}% · 선명도 {{ p.blur|int }}{% if not p.reviewed %}<button class="btn mini" form="retake" onclick="return confirm('이 사진을 버리고 폰에 다시 찍기를 요청합니다. 계속할까요?')">다시 찍기 요청</button>{% endif %}</span></div>
   <div class="pb{{ ' draw' if not p.reviewed }}">{{ ui.photo(p.src, cands, polys=polys, pcls='red prev', origin=p.origin) }}
   {% if polys %}<p class="note" style="margin:10px 0 0">빨간 점선 = 같은 구역 도장 전 지적 위치</p>{% endif %}

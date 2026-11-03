@@ -53,6 +53,8 @@ STATUS = {"검사 대기": "wait", "촬영 불량": "badimg", "검토 대기": "
           "조치 완료": "fixed", "재검사 대기": "recheck", "Close-out": "close", "Release 완료": "release"}
 # 지적 상태 -> 구역 상태 이름. 구역에 지적이 여럿이면 앞쪽 상태가 우선한다
 FINDING = {"open": "Punch Open", "recheck": "재검사 대기", "fixed": "조치 완료", "closed": "Close-out"}
+# 화면에 보이는 이름. 상태 값(DB·비교)은 그대로 두고 현업 말로 풀어 쓴다
+SHOW = {"Punch Open": "지적(Open)", "Close-out": "종결(Close-out)", "Release 완료": "최종 종결(Release)"}
 # 구역 상태 -> 화면 위 진행 막대(①~⑦)에서 강조할 단계. 도장 후 사진이 있으면 상태와 상관없이 ⑦
 ZONE_STEP = {"검사 대기": 1, "촬영 불량": 1, "검토 대기": 2, "Punch Open": 3, "조치 완료": 4, "재검사 대기": 5, "Close-out": 6,
              "Release 완료": 7}
@@ -105,7 +107,7 @@ SURFACES = {"Z": ("이중저 밸러스트 탱크", "탱크 바닥 · PSPC", "L")
 SHIP = "H-2231"
 BLOCKS = {"B12P": "좌현", "B12S": "우현"}
 SHIP_COLS = [f"{n:02d}" for n in range(7, 17)]
-tpl.env.globals.update(STATUS=STATUS, FINDING=FINDING, LOC=zone_loc, BLK=zone_block, CELL=zone_cell, COLS=COLS, ROWS=ROWS,
+tpl.env.globals.update(STATUS=STATUS, FINDING=FINDING, SHOW=SHOW, LOC=zone_loc, BLK=zone_block, CELL=zone_cell, COLS=COLS, ROWS=ROWS,
                        FR0=FR0, L0=L0, WL=WAVELENGTHS, SHIP=SHIP, BLOCKS=BLOCKS, SHIP_COLS=SHIP_COLS, SURFACES=SURFACES,
                        # 폰 브라우저가 옛 CSS를 붙잡고 있지 않도록 수정 시각을 주소에 붙인다
                        CSS_V=lambda: int((WEB / "static" / "style.css").stat().st_mtime),
@@ -491,7 +493,7 @@ def seed():
               "VALUES('Z-03',?,?,?,?,?,?,0.87,'fixed','잔류 녹 · 재블라스팅 필요','10-05 14:10')", pid, cid, *box)
     run("INSERT INTO actions(finding_id, note, src, ts) VALUES(?, '부분 재블라스팅 후 청소', NULL, '10-06 09:40')", fid)
     for ts, text in [("10-05 14:02", "도장 전 촬영 · 사진 상태 양호"), ("10-05 14:03", "AI 후보 2건"),
-                     ("10-05 14:10", f"지적 I-{fid:02d} 확정 → Punch Open"),
+                     ("10-05 14:10", f"지적 I-{fid:02d} 확정 → 지적(Open)"),
                      ("10-06 09:40", f"I-{fid:02d} 조치 완료 등록 (작업자)")]:
         log("Z-03", text, ts, mock=1)
     seed_post("Z-04")
@@ -534,16 +536,16 @@ def seed_post(zid):
              "VALUES(?,?,?,?,?,?,?,'closed','도막 아래 이물·요철 · 부착 불량 우려','10-08 14:05','10-09 11:20')",
              zid, post, c3, *bump)
     run("INSERT INTO actions(finding_id, note, ts) VALUES(?, '요철 부위 샌딩 · 염분 확인 후 보수 도장', '10-09 11:00')", f3)
-    events = [("10-02 09:10", "도장 전 촬영 · 사진 상태 양호"), ("10-02 09:12", f"지적 I-{f1:02d} 확정 → Punch Open"),
+    events = [("10-02 09:10", "도장 전 촬영 · 사진 상태 양호"), ("10-02 09:12", f"지적 I-{f1:02d} 확정 → 지적(Open)"),
                      ("10-02 09:12", "AI 후보 반려 1건 · 먼지·오염"),
                      ("10-02 15:30", f"I-{f1:02d} 조치 완료 등록 (작업자)"),
                      ("10-03 10:05", f"I-{f1:02d} 재검사 촬영 · 자동 정합 성공 (대응점 1543개)"),
-                     ("10-03 10:07", f"I-{f1:02d} 재검사 확인 → Close-out"),
+                     ("10-03 10:07", f"I-{f1:02d} 재검사 확인 → 종결(Close-out)"),
                      ("10-03 10:07", f"Hold Point 1 해제 · 승인 {INSPECTOR}"), ("10-08 14:00", "도장 후 촬영 · 사진 상태 양호"),
                      ("10-08 14:00", f"도장 전 사진과 위치 맞춤 · 성공 (대응점 {a['matches']}개)"),
-                     ("10-08 14:05", f"도장 후 지적 I-{f2:02d} 확정 → Punch Open"),
-                     ("10-08 14:05", f"지적 I-{f3:02d} 검사원 직접 추가 (AI가 놓친 곳) · 도장 전 반려 자리 → Punch Open"),
-                     ("10-09 11:00", f"I-{f3:02d} 조치 완료 등록 (작업자)"), ("10-09 11:20", f"I-{f3:02d} 재검사 확인 → Close-out"),
+                     ("10-08 14:05", f"도장 후 지적 I-{f2:02d} 확정 → 지적(Open)"),
+                     ("10-08 14:05", f"지적 I-{f3:02d} 검사원 직접 추가 (AI가 놓친 곳) · 도장 전 반려 자리 → 지적(Open)"),
+                     ("10-09 11:00", f"I-{f3:02d} 조치 완료 등록 (작업자)"), ("10-09 11:20", f"I-{f3:02d} 재검사 확인 → 종결(Close-out)"),
                      ("10-09 16:40", f"I-{f2:02d} 조치 완료 등록 (작업자)")]
     run("UPDATE zones SET hp1=? WHERE id=?", f"{INSPECTOR} · 10-03 10:07", zid)
     if SPECTRAL:
@@ -646,12 +648,12 @@ def zone_timeline(z, photo, post, findings, nums):
              done=bool(pre_f) and all(f["status"] != "open" for f in pre_f), skip=none),
         dict(label="재검사", at=max((r["ts"] for r in pr), default=None), img=pr[-1]["src"] if pr else None,
              done=bool(pre_f) and all(f["status"] == "closed" for f in pre_f), skip=none),
-        dict(label="Close-out · HP1", at=at_of(z["hp1"]), sub="도장 착수 승인" if z["hp1"] else "", done=bool(z["hp1"])),
+        dict(label="종결 · HP1", at=at_of(z["hp1"]), sub="도장 착수 승인" if z["hp1"] else "", done=bool(z["hp1"])),
         dict(label="도장 후 촬영", at=post and post["ts"], img=post and post["src"], done=bool(post)),
         dict(label="도장 후 지적·조치", at=max([a["ts"] for a in qa] + [r["ts"] for r in qr] + [f["ts"] for f in post_f], default=None),
              sub=(f"지적 {len(post_f)}건" + (f" · 재발 {nums['recur']}" if nums["recur"] else "")) if post_f else ("지적 없음" if post and post["reviewed"] else ""),
              done=bool(post and post["reviewed"]) and all(f["status"] == "closed" for f in post_f)),
-        dict(label="Release · HP2", at=at_of(z["hp2"]), sub="다음 공정 승인" if z["hp2"] else "", done=bool(z["hp2"])),
+        dict(label="최종 종결 · HP2", at=at_of(z["hp2"]), sub="다음 공정 승인" if z["hp2"] else "", done=bool(z["hp2"])),
     ]
     now = False
     for x in s:
@@ -753,7 +755,7 @@ def report_doc(d, dj):
     if z["hp2"]:
         op.append("Hold Point 1·2가 모두 해제됐습니다.")
     elif z["hp1"]:
-        op.append("Hold Point 1은 해제됐고 Hold Point 2는 대기 중입니다." + (" 미종결 지적을 마쳐야 Release할 수 있습니다." if nums["open"] else ""))
+        op.append("Hold Point 1은 해제됐고 Hold Point 2는 대기 중입니다." + (" 미종결 지적을 마쳐야 최종 종결할 수 있습니다." if nums["open"] else ""))
     else:
         op.append("Hold Point 1이 대기 중이라 도장을 시작할 수 없습니다.")
     if dj and not dj["ok"]:
@@ -825,7 +827,7 @@ def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
                       "VALUES(?,?,?,?,?,?,?,?,'open',?,?)",
                       zid, pid, c["id"], c["x0"], c["y0"], c["x1"], c["y1"], c["score"], notes.get(c["id"], "").strip() or note, now())
             run("UPDATE candidates SET decision='accepted', decided_at=? WHERE id=?", now(), c["id"])
-            log(zid, f"{'도장 후 ' if p['kind'] == 'post' else ''}지적 I-{fid:02d} 확정 → Punch Open")
+            log(zid, f"{'도장 후 ' if p['kind'] == 'post' else ''}지적 I-{fid:02d} 확정 → 지적(Open)")
         else:
             r = why[c["id"]]
             run("UPDATE candidates SET decision='rejected', reason=?, decided_at=? WHERE id=?", r, now(), c["id"])
@@ -837,7 +839,7 @@ def review_confirm(pid: int, pick: list[int] = Form([]), note: str = Form(""),
                   "VALUES(?,?,?,?,?,'accepted',?,'manual')", pid, *b, now())
         fid = run("INSERT INTO findings(zone_id, photo_id, cand_id, x0, y0, x1, y1, status, note, ts) "
                   "VALUES(?,?,?,?,?,?,?,'open',?,?)", zid, pid, cid, *b, note, now())
-        log(zid, f"지적 I-{fid:02d} 검사원 직접 추가 (AI가 놓친 곳) → Punch Open")
+        log(zid, f"지적 I-{fid:02d} 검사원 직접 추가 (AI가 놓친 곳) → 지적(Open)")
     run("UPDATE photos SET reviewed=1 WHERE id=?", pid)
     if pick or boxes:
         refresh(zid)
@@ -877,7 +879,7 @@ def finding_close(fid: int):
     if f["status"] != "recheck":  # 이미 처리됐거나 재검사 사진이 없다
         return go(f"/findings/{fid}")
     run("UPDATE findings SET status='closed', closed_at=? WHERE id=?", now(), fid)
-    log(f["zone_id"], f"I-{fid:02d} 재검사 확인 → Close-out")
+    log(f["zone_id"], f"I-{fid:02d} 재검사 확인 → 종결(Close-out)")
     refresh(f["zone_id"])
     return go(f"/zones/{f['zone_id']}")
 
@@ -888,7 +890,7 @@ def finding_reopen(fid: int):
     if f["status"] != "recheck":
         return go(f"/findings/{fid}")
     run("UPDATE findings SET status='open', reworks=reworks + 1 WHERE id=?", fid)
-    log(f["zone_id"], f"I-{fid:02d} 재검사 결과 미흡 → 재조치 (Punch Open)")
+    log(f["zone_id"], f"I-{fid:02d} 재검사 결과 미흡 → 재조치 · 지적(Open)")
     refresh(f["zone_id"])
     return go(f"/zones/{f['zone_id']}")
 
