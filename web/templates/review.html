@@ -4,7 +4,7 @@
 {% block body %}
 <div class="title">
  <div><h1>AI 후보 확인 · {{ p.zone_id }} <span class="sub mono" style="font-size:15px;font-weight:500">{{ LOC(p.zone_id) }}</span></h1>
-  <p>AI는 다시 볼 곳만 제안합니다. 후보마다 검사원이 <b>지적</b> 또는 <b>반려 + 이유</b>를 고르고, 그 판단이 그대로 학습 라벨이 됩니다. 점수는 정답 확률이 아닙니다.</p></div>
+  <p>AI는 다시 볼 곳만 제안합니다. 후보마다 검사원이 <b>지적 승인</b> 또는 <b>지적 반려 + 이유</b>를 고르고, 그 판단이 그대로 학습 라벨이 됩니다. 점수는 정답 확률이 아닙니다.</p></div>
  <span><span class="tag c-review">후보 {{ cands|length }}건</span> <span class="tag c-mute mono">{{ p.model }}</span></span>
 </div>
 <form method="post" class="cols" onsubmit="return !!(this.querySelector('[name=pick]:checked') || this.querySelector('input.manual')) || confirm({{ ('지적 없이 최종 종결합니다. Hold Point 2가 바로 해제됩니다. 계속할까요?' if p.kind == 'post' else '지적 없이 종결합니다. Hold Point 1(도장 착수 승인)이 바로 해제됩니다. 계속할까요?')|tojson|forceescape }})">
@@ -27,7 +27,7 @@
      {%- if hints.get(c.id) %}<br><span class="tag c-{{ hints[c.id][0] }}">{{ hints[c.id][1] }}</span>{% endif %}</div>
     {% if not p.reviewed %}
     <input type="hidden" name="rc" value="{{ c.id }}"><input type="hidden" name="reason" value=""><input type="checkbox" name="pick" value="{{ c.id }}" hidden>
-    <div class="dec"><button type="button" class="btn d-pick">지적</button><button type="button" class="btn d-rej">반려</button></div>
+    <div class="dec"><button type="button" class="btn d-pick">지적 승인</button><button type="button" class="btn d-rej">지적 반려</button></div>
     <div class="chips">{% for r in REASONS %}<button type="button" class="chip" data-r="{{ r }}">{{ r }}</button>{% endfor %}</div>
     <input class="cnote" type="text" name="cnote" placeholder="이 지적의 내용 (비우면 아래 공통 내용)">
     {% elif c.decision == 'accepted' %}<span class="tag c-punch">{{ '직접 추가 · 지적' if c.source == 'manual' else '지적' }}</span>
@@ -39,15 +39,17 @@
   <p class="note" style="margin:14px 0 6px">지적 내용 <span class="note">(공통 · 카드에 따로 적지 않은 지적에 들어갑니다)</span></p>
   <textarea name="note" rows="2" placeholder="예: 잔류 녹 · 재블라스팅 필요"></textarea>
   <button class="btn pri" id="go" style="width:100%;margin-top:10px"{{ ' disabled' if cands }}>검사원 판정 확정</button>
-  <p class="note">후보마다 지적 또는 반려(이유까지)를 골라야 확정됩니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>
+  <p class="note">후보마다 지적 승인 또는 지적 반려를 골라야 확정됩니다. 승인하면 지적 내용, 반려하면 이유 '기타'가 먼저 채워지고 바꿀 수 있습니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>
   {% else %}<p class="note">이미 판정한 사진입니다. <a href="/zones/{{ p.zone_id }}">구역 이력 보기 →</a></p>{% endif %}
  </div></div>
 </form>
 <form id="retake" method="post" action="/review/{{ p.id }}/retake"></form>
 {% if not p.reviewed %}<script>
-// 후보마다 지적/반려를 고른다. 지적 = pick 체크, 반려 = 이유 칩까지 골라야 판정으로 센다. 미리 골라 두지 않는다(라벨이 AI를 따라가지 않게)
+// 후보마다 지적 승인/반려를 고른다. 승인 = pick 체크, 반려 = 이유 칩까지 있어야 판정으로 센다.
+// 승인·반려 자체는 미리 골라 두지 않는다(라벨이 AI를 따라가지 않게). 고른 뒤 채우는 기본값(지적 내용, 반려 이유 '기타')은 시간을 줄이려는 것
 (() => {
   const cards = [...document.querySelectorAll('.cc')], rects = [...document.querySelectorAll('.draw .photo svg rect.box')];
+  const NOTE = {{ ('도막 결함 · 보수 도장 필요' if p.kind == 'post' else '잔류 녹 · 재블라스팅 필요')|tojson }};
   const decided = c => c.dataset.d === 'pick' || (c.dataset.d === 'rej' && c.querySelector('[name=reason]').value);
   const count = () => {
     const n = cards.filter(decided).length;
@@ -56,15 +58,19 @@
   };
   cards.forEach((card, i) => {
     const pick = card.querySelector('[name=pick]'), why = card.querySelector('[name=reason]'), chips = [...card.querySelectorAll('.chip')];
+    const note = card.querySelector('.cnote');
+    const reason = r => { why.value = r; chips.forEach(x => x.classList.toggle('on', x.dataset.r === r)); };
     const set = d => {
       card.dataset.d = d; pick.checked = d === 'pick';
-      if (d === 'pick') { why.value = ''; chips.forEach(b => b.classList.remove('on')); }
+      if (d === 'pick') { reason(''); if (!note.value) note.value = NOTE; }
+      if (d === 'rej' && !why.value) reason('기타');
       if (rects[i]) { rects[i].classList.toggle('pick', d === 'pick'); rects[i].classList.toggle('rej', d === 'rej'); }
       count();
     };
     card.querySelector('.d-pick').onclick = () => set('pick');
     card.querySelector('.d-rej').onclick = () => set('rej');
-    chips.forEach(b => b.onclick = () => { why.value = b.dataset.r; chips.forEach(x => x.classList.toggle('on', x === b)); set('rej'); });
+    chips.forEach(b => b.onclick = () => { reason(b.dataset.r); set('rej'); });
+    note.onfocus = () => { if (note.value === NOTE) note.select(); };  // 기본값이면 바로 덮어 쓰게
     card.onmouseenter = () => rects[i] && rects[i].classList.add('hot');
     card.onmouseleave = () => rects[i] && rects[i].classList.remove('hot');
   });

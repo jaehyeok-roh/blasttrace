@@ -11,9 +11,10 @@
  <aside class="side">
   <a class="logo" href="/">BlastTrace<i>.</i></a>
   <nav class="nav"><a href="/" class="{{ 'on' if nav == 'home' }}">검사 현황</a><a href="/quality" class="{{ 'on' if nav == 'quality' }}">품질 분석</a><a href="/data" class="{{ 'on' if nav == 'data' }}">판정 데이터</a><a href="/loop" class="{{ 'on' if nav in ('loop', 'effect') }}">효과 분석</a></nav>
-  <div class="foot">폰 접속 주소{% if phone %}<span class="qr" title="폰 카메라로 찍으면 현장 촬영 화면이 열립니다">{{ QR(phone[0]) }}</span>{% endif %}
-   {%- for u in phone %}<b class="mono">{{ u }}</b>{% else %}<b>네트워크 없음</b>{% endfor %}
-   <form method="post" action="/demo/reset" onsubmit="return confirm('모든 기록과 올린 사진을 지우고 시연 시작 상태로 되돌립니다. 계속할까요?')"><button class="reset">시연 초기화</button></form></div>
+  {#- 시연 초기화는 제목 줄에 둔다. 맨 아래 두면 창이 낮거나 주소가 길 때(터널) 사이드바 스크롤 아래로 밀려 안 보인다 #}
+  <div class="foot"><div class="fh">폰 접속 주소<form method="post" action="/demo/reset" onsubmit="return confirm('모든 기록과 올린 사진을 지우고 시연 시작 상태로 되돌립니다. 계속할까요?')"><button class="reset">시연 초기화</button></form></div>
+   {%- if phone %}<span class="qr" title="폰 카메라로 찍으면 현장 촬영 화면이 열립니다">{{ QR(phone[0]) }}</span>{% endif %}
+   {%- for u in phone %}<b class="mono">{{ u }}</b>{% else %}<b>네트워크 없음</b>{% endfor %}</div>
  </aside>
  <div>
   <header class="top"><div class="crumb">{% block crumb %}{% endblock %}</div><div class="sub">{{ INSPECTOR }}</div></header>
