@@ -39,7 +39,7 @@
    <div><span>AI가 먼저 표시한 결함</span><b id="m-r">–</b><svg class="sp" id="s-r" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>재학습이 없으면 {{ '%.0f' % (sim.r0 * 100) }}%</small></div>
    <div><span>구역 1건 공수</span><div class="v"><b id="m-h">–</b><em id="d-h"></em></div><svg class="sp" id="s-h" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>점선 = 현행 {{ '%.1f' % (sim.T.M0 / 60) }}시간</small></div>
    <div><span>결과로 채점된 판단</span><b id="m-s">0</b><svg class="sp" id="s-s" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small>판단과 결과가 이어진 수</small></div>
-   <div><span>100구역당 도장 후 결함</span><div class="v"><b id="m-f">–</b><em id="d-f"></em></div><svg class="sp" id="s-f" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-f2"></small></div>
+   <div><span>100구역당 도장 전에 놓친 결함</span><div class="v"><b id="m-f">–</b><em id="d-f"></em></div><svg class="sp" id="s-f" viewBox="0 0 120 30" preserveAspectRatio="none"></svg><small id="m-f2"></small></div>
   </div></div>
  </div>
 </div>
@@ -95,7 +95,8 @@
   // 구역 1건 공수(인·분): 기록 연결만으로 M1까지 줄고, AI가 좋아진 만큼 M2(가설, AI 낙관 끝값일 때)로 더 내려간다
   const T = () => P.T[scen];
   const perZone = () => T().M1 - (T().M1 - T().M2) * Math.min(1, (S.r - P.r0) / (P.scen['낙관'].rinf - P.r0));
-  // 재학습이 없을 때 구역 100곳당 도장 후 결함 = 지적 × (AI도 사람도 놓침 + 잘못 반려) × 도장 후 드러날 확률
+  // 구역 100곳당 도장 전에 놓친 결함(도장 후에 드러난 것만) = 지적 × (AI도 사람도 놓침 + 잘못 반려) × 도장 후 드러날 확률
+  // 도장 공정에서 생기는 결함(두께·핀홀)은 세지 않는다. 줄어드는 건 AI 향상 가정 때문이다
   const F = r => P.pi1 * P.n_punch * ((1 - r) * (1 - P.human) + r * (1 - P.accept)) * P.surface * 100, F0 = F(P.r0);
 
   function reset() {
@@ -106,7 +107,7 @@
     say('시작을 누르면 검사원·작업자의 기록이 올라옵니다.', 'idle');
     const s = T().saved, n = v => Math.round(v);
     $('where').innerHTML = `구역 1건에서 기록·전사 −${n(s.기록)}분 · 위치 찾기 −${n(s.위치)}분 · 분쟁 −${n(s.분쟁)}분${n(s.앱) ? ` · 앱 입력 +${n(s.앱)}분` : ''} · <b>판정 0분</b>`;
-    $('m-f2').textContent = `점선 = 재학습이 없으면 ${F0.toFixed(1)}건`;
+    $('m-f2').innerHTML = `도장 후 발견만 셈 · AI 향상은 가정<br>점선 = 재학습이 없으면 ${F0.toFixed(1)}건`;
     draw();
   }
 

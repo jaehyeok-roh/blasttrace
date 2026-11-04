@@ -404,7 +404,10 @@ def main_ip():
 
 
 def phone_urls(request: Request):
-    """폰 접속 주소. 기본 경로 IP가 맨 앞"""
+    """폰 접속 주소. 인터넷 주소(행사장 터널)로 열었으면 그 주소, 아니면 같은 와이파이 IP(기본 경로 IP가 맨 앞)"""
+    host = request.url.hostname or ""
+    if host not in ("localhost", "testserver") and not host.replace(".", "").isdigit() and ":" not in host:
+        return [f"{str(request.base_url).rstrip('/')}/m"]
     m = main_ip()
     ips = {a[4][0] for a in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)} | {m} - {None}
     port = request.url.port or 80
