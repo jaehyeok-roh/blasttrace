@@ -24,13 +24,18 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 행사장 노트북은 브라우저만 쓰고(설치 없음), 폰은 LTE로 같은 주소에 붙습니다.
 
 1. 우리 노트북을 인터넷(폰 핫스팟 등)에 붙이고 서버를 켭니다: `uvicorn server.app:app --host 0.0.0.0 --port 8000`
-2. 다른 창에서 `python -m server.tunnel` → 긴 로그 대신 **발표 노트북 주소**(`https://○○○.trycloudflare.com`)만 크게 나오고 클립보드에 복사됩니다.
+2. 다른 창(PowerShell)에서 터널을 켭니다. `--protocol http2`는 보통 웹과 같은 TCP 443으로 연결해, 학교·행사장 와이파이나 LTE에서 UDP(QUIC, 기본값)보다 덜 끊깁니다.
+   ```powershell
+   & "$HOME\tools\cloudflared.exe" tunnel --no-autoupdate --protocol http2 --url http://localhost:8000
+   ```
+   로그 중간 상자에 나오는 **발표 노트북 주소**(`https://○○○.trycloudflare.com`)를 복사합니다. `Registered tunnel connection` 줄 끝이 `protocol=http2`인지 확인합니다.
 3. 그 주소를 행사장 노트북 브라우저로 엽니다. 왼쪽 아래 폰 QR이 같은 인터넷 주소로 바뀝니다.
 4. 시연 폰은 와이파이를 끄고 LTE로 그 QR을 찍습니다.
 
-- 터널은 Cloudflare 빠른 터널(`cloudflared`, 계정 없음)입니다. 저장소에는 없으니 [cloudflared 릴리스](https://github.com/cloudflare/cloudflared/releases)에서 `cloudflared-windows-amd64.exe`를 받아 `~/tools/cloudflared.exe`에 두거나 `BT_CLOUDFLARED`에 경로를 넣습니다.
-- **창을 닫거나 다시 켜면 주소가 바뀝니다.** 리허설부터 발표까지 우리 노트북과 터널 창을 켜 둡니다(충전기). 주소가 바뀌면 송출 담당자에게 새 주소를 알립니다.
-- 다른 포트면 `python -m server.tunnel 8765`. 연결이 끊기면 `ERR` 줄이 나옵니다. 인터넷이 막히면 백업 영상으로 넘어갑니다.
+- 터널은 Cloudflare 빠른 터널(`cloudflared`, 계정 없음)입니다. 저장소에는 없으니 [cloudflared 릴리스](https://github.com/cloudflare/cloudflared/releases)에서 `cloudflared-windows-amd64.exe`를 받아 `~/tools/cloudflared.exe`에 둡니다.
+- **창을 닫거나 다시 켜면 주소가 바뀝니다.** 리허설부터 발표까지 우리 노트북과 터널 창을 켜 둡니다(충전기). 주소가 바뀌면 송출 담당자에게 새 주소를 알립니다. 서버·터널 창 안을 클릭하면 '선택' 상태로 멈추니 건드리지 않습니다(멈추면 Esc).
+- 빨간 `ERR` 줄 읽기: `context canceled`는 브라우저가 요청을 취소한 것(시연 초기화·화면 이동 중)이라 무시합니다. `no recent network activity`는 연결이 멈췄다가 스스로 다시 붙은 것이라 5초쯤 뒤 새로 고침(F5)하면 돌아옵니다. 계속 끊기거나 인터넷이 막히면 백업 영상으로 넘어갑니다.
+- `python -m server.tunnel`(주소만 크게 보여 주는 도우미)도 있지만 기본 연결(QUIC)이라 위 명령을 씁니다. 다른 포트면 `--url`의 8000을 바꿉니다.
 
 ## 시연 흐름
 
