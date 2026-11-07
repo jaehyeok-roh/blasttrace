@@ -39,14 +39,14 @@
   <p class="note" style="margin:14px 0 6px">지적 내용 <span class="note">(공통 · 카드에 따로 적지 않은 지적에 들어갑니다)</span></p>
   <textarea name="note" rows="2" placeholder="예: 잔류 녹 · 재블라스팅 필요"></textarea>
   <button class="btn pri" id="go" style="width:100%;margin-top:10px"{{ ' disabled' if cands }}>검사원 판정 확정</button>
-  <p class="note">후보마다 지적 승인 또는 지적 반려를 골라야 확정됩니다. 승인하면 지적 내용, 반려하면 이유 '기타'가 먼저 채워지고 바꿀 수 있습니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>
+  <p class="note">후보마다 지적 승인 또는 지적 반려를 골라야 확정됩니다. 승인하면 지적 내용, 반려하면 이유 '그림자·반사'가 먼저 채워지고 바꿀 수 있습니다. 반려 이유는 <a href="/data">판정 데이터</a>에 쌓입니다.</p>
   {% else %}<p class="note">이미 판정한 사진입니다. <a href="/zones/{{ p.zone_id }}">구역 이력 보기 →</a></p>{% endif %}
  </div></div>
 </form>
 <form id="retake" method="post" action="/review/{{ p.id }}/retake"></form>
 {% if not p.reviewed %}<script>
 // 후보마다 지적 승인/반려를 고른다. 승인 = pick 체크, 반려 = 이유 칩까지 있어야 판정으로 센다.
-// 승인·반려 자체는 미리 골라 두지 않는다(라벨이 AI를 따라가지 않게). 고른 뒤 채우는 기본값(지적 내용, 반려 이유 '기타')은 시간을 줄이려는 것
+// 승인·반려 자체는 미리 골라 두지 않는다(라벨이 AI를 따라가지 않게). 고른 뒤 채우는 기본값(지적 내용, 반려 이유 첫 항목 '그림자·반사')은 시간을 줄이려는 것
 (() => {
   const cards = [...document.querySelectorAll('.cc')], rects = [...document.querySelectorAll('.draw .photo svg rect.box')];
   const NOTE = {{ ('도막 결함 · 보수 도장 필요' if p.kind == 'post' else '잔류 녹 · 재블라스팅 필요')|tojson }};
@@ -63,7 +63,7 @@
     const set = d => {
       card.dataset.d = d; pick.checked = d === 'pick';
       if (d === 'pick') { reason(''); if (!note.value) note.value = NOTE; }
-      if (d === 'rej' && !why.value) reason('기타');
+      if (d === 'rej' && !why.value) reason({{ REASONS[0]|tojson }});
       if (rects[i]) { rects[i].classList.toggle('pick', d === 'pick'); rects[i].classList.toggle('rej', d === 'rej'); }
       count();
     };

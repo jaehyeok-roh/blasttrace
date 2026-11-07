@@ -11,10 +11,8 @@
  <div class="ph"><h2>재검사 · 같은 위치 비교</h2>
   {% if r %}<span class="note mono">{{ r.ts }}</span>{% endif %}</div>
  <div class="pb">
-  {% if r %}<div class="verdict {{ 'ok' if r.success else 'fail' }}">
-   {% if r.success %}각도가 달라도 이전 지적 위치를 자동으로 찾았습니다<span>두 사진에서 같은 특징점 {{ '{:,}'.format(r.matches) }}개 일치</span>
-   {% else %}자동으로 위치를 찾지 못했습니다<span>검사원이 직접 같은 위치인지 확인합니다</span>{% endif %}
-  </div>{% endif %}
+  {#- 정합 실패 때는 위 문구를 띄우지 않는다(사용자 11/7). 검사원이 사진 두 장을 보고 판정 #}
+  {% if r and r.success %}<div class="verdict ok">각도가 달라도 이전 지적 위치를 자동으로 찾았습니다<span>두 사진에서 같은 특징점 {{ '{:,}'.format(r.matches) }}개 일치</span></div>{% endif %}
   <div class="pair">
   <div><h3>조치 전 · {{ f.ts }}</h3>{{ ui.photo(p.src, [f], 'red', ids=True, origin=p.origin) }}</div>
   <div><h3>재검사</h3>
