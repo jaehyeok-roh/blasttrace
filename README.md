@@ -109,7 +109,7 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 ## 한계
 
 - **시연용 예시입니다.** 선형은 KRISO 공개 표준 선형(KLNG2)을 바탕으로 했고, 호선 번호·블록 분할·도면 치수와 시작 상태의 기록은 지어낸 값입니다. 실제 조선소 데이터는 쓰지 않았습니다.
-- `web/static/samples/`의 예시 사진은 가공·합성 사진입니다. 앱은 이 사진을 알아보고 "합성"으로 표시합니다.
+- `web/static/samples/`의 예시 사진은 공개 데이터셋 사진을 가공·합성한 것입니다(아래 출처). 앱은 이 사진을 알아보고 "합성"으로 표시합니다.
 - 사진 정합은 평판 시편과 합성 사진에서만 확인했습니다. 곡면·용접부와, 무늬가 가려진 실제 도장면에서는 검증하지 않았습니다.
 - AI 후보 모델과 분광 모델은 팀이 찍은 소수의 평판 시편으로 학습한 시험 모델이라, 일반 성능을 뜻하지 않습니다. AI 후보는 판정이 아닙니다.
 - 분광(가시광)으로는 도막 두께와 도막 밑 녹을 볼 수 없습니다. 도막 두께는 게이지 값을 넣습니다.
@@ -127,7 +127,8 @@ uvicorn server.app:app --host 0.0.0.0 --port 8000
 | [Ultralytics](https://github.com/ultralytics/ultralytics) | 선택 기능 AI 후보(저장소에 포함하지 않음) | AGPL-3.0 |
 | [cloudflared](https://github.com/cloudflare/cloudflared) | 선택 기능 터널(저장소에 포함하지 않음) | Apache-2.0 |
 
-3D 선박 모델(`web/static/models/lng_ship.glb`)은 KRISO(한국해양과학기술원 부설 선박해양플랜트연구소)가 공개한 LNG 운반선 표준 선형 **KLNG2**를 3D로 띄운 것입니다.
+- **3D 선박 모델**(`web/static/models/lng_ship.glb`): KRISO(한국해양과학기술원 부설 선박해양플랜트연구소)가 공개한 LNG 운반선 표준 선형 **KLNG2**를 3D로 띄운 것입니다.
+- **예시 사진**(`web/static/samples/`의 `before.png`, `after.png`, `painted.png`, `painted_fixed.png`): [SteelBlastQC Dataset](https://doi.org/10.34894/EKZNN0)(Ruzavina, Theis, Lemeer, de Groen, Ebeling, Hulak, Ali, Tang, Mockel, 2025, DataverseNL, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/))의 사진을 바탕으로, 팀이 재작업 흔적·도장 색·녹 번짐을 그려 넣고 원근을 바꿔 만든 가공·합성 사진입니다. 관련 논문: [arXiv:2504.20510](https://arxiv.org/abs/2504.20510).
 
 ## 팀
 
